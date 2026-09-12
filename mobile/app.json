@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "BuildTrack",
+    "slug": "buildtrack",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "buildtrack",
+    "userInterfaceStyle": "automatic",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow BuildTrack to access your Face ID for secure sign-in."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "BuildTrack needs photo access so you can attach site photos and receipts.",
+          "cameraPermission": "BuildTrack needs camera access so you can capture site photos, videos and receipt scans."
+        }
+      ],
+      "expo-sqlite",
+      "expo-video",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "BuildTrack uses the camera for site photos, progress videos and document scans.",
+          "microphonePermission": "BuildTrack records audio with site progress videos."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "BuildTrack verifies worker attendance against the pinned site location. Location data stays on your device unless you mark attendance.",
+          "locationWhenInUsePermission": "BuildTrack verifies worker attendance against the pinned site location. Location data stays on your device unless you mark attendance.",
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "BuildTrack imports worker names and numbers from your phone book when you choose to add them."
+        }
+      ],
+      "expo-notifications",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "android": {
+      "package": "com.patelcon.buildtrack",
+      "adaptiveIcon": {
+        "backgroundColor": "#1C1B1A"
+      }
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.patelcon.buildtrack"
+    }
+  }
+}

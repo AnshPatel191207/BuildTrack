@@ -59,11 +59,25 @@
       "package": "com.patelcon.buildtrack",
       "adaptiveIcon": {
         "backgroundColor": "#1C1B1A"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS"
+      ]
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.patelcon.buildtrack"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e6d99a2b-fc8b-4de9-85fa-44a76ea8f9e9"
+      }
     }
   }
 }

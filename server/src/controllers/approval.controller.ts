@@ -106,7 +106,7 @@ export async function createApproval(req: Req, res: Response) {
 async function notifyApprovers(approval: any, requester: AuthUser): Promise<void> {
   const step = approval.steps?.[approval.currentLevel];
   if (!step) return;
-  const User = (await import('../models/User')).User;
+  const User = (await import('../models/User.js')).User;
   const approvers = await User.find({
     companyId: approval.companyId,
     role: { $in: [step.role, ...(step.role === 'project_manager' ? ['manager'] : []), ...(step.role === 'site_engineer' ? ['engineer'] : [])] },
@@ -189,7 +189,7 @@ export async function actOnApproval(req: Req, res: Response) {
 
   await approval.save();
 
-  const requester = await import('../models/User').then(({ User }) =>
+  const requester = await import('../models/User.js').then(({ User }) =>
     User.findById(approval.requestedBy).select('_id name'),
   );
   if (requester && String(requester._id) !== String(user._id)) {
@@ -220,14 +220,14 @@ export async function actOnApproval(req: Req, res: Response) {
 async function applyApprovalSideEffects(approval: any, _req: Request): Promise<void> {
   try {
     if (approval.entityType === 'purchase_order' && approval.entityId) {
-      const { PurchaseOrder } = await import('../models/PurchaseOrder');
+      const { PurchaseOrder } = await import('../models/PurchaseOrder.js');
       await PurchaseOrder.updateOne(
         { _id: approval.entityId, status: 'draft' },
         { $set: { status: 'approved', approvedBy: approval.steps.at(-1)?.actedBy } },
       );
     }
     if (approval.entityType === 'expense' && approval.entityId) {
-      const { Expense } = await import('../models/Expense');
+      const { Expense } = await import('../models/Expense.js');
       if (Expense.schema.path('approvalStatus')) {
         await Expense.updateOne(
           { _id: approval.entityId },
@@ -249,7 +249,7 @@ async function applyApprovalSideEffects(approval: any, _req: Request): Promise<v
 async function applyRejectionSideEffects(approval: any): Promise<void> {
   try {
     if (approval.entityType === 'purchase_order' && approval.entityId) {
-      const { PurchaseOrder } = await import('../models/PurchaseOrder');
+      const { PurchaseOrder } = await import('../models/PurchaseOrder.js');
       await PurchaseOrder.updateOne(
         { _id: approval.entityId, status: 'draft' },
         { $set: { status: 'cancelled' } },

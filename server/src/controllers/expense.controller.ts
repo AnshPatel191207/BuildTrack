@@ -77,7 +77,7 @@ export async function createExpense(req: Request & { validatedBody?: any }, res:
 
   if (expense.amount >= BIG_EXPENSE_THRESHOLD) {
     const company = await (
-      await import('../models/Company')
+      await import('../models/Company.js')
     ).Company.findById(project.companyId).select('ownerId');
     await notifyProjectStakeholders({
       ownerId: company?.ownerId,

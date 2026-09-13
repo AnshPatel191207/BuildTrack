@@ -14,7 +14,7 @@ import type { Request, Response } from 'express';
 type Req = Request & { validatedBody?: any; validatedQuery?: any };
 
 async function getCompanyOwnerId(companyId: unknown): Promise<unknown | null> {
-  const Company = (await import('../models/Company')).Company;
+  const Company = (await import('../models/Company.js')).Company;
   const company = await Company.findById(companyId).select('ownerId');
   return company?.ownerId ?? null;
 }
@@ -112,7 +112,7 @@ export async function createBooking(req: Req, res: Response) {
 
   // Booking approval chain: Sales Manager → Owner. The requester clears
   // their own level automatically.
-  const { Approval, APPROVAL_CHAINS } = await import('../models/Approval');
+  const { Approval, APPROVAL_CHAINS } = await import('../models/Approval.js');
   const requesterRole = String(user.role);
   const steps = APPROVAL_CHAINS.booking.map((role: string, i: number) => ({
     level: i,
@@ -386,7 +386,7 @@ export async function deleteBooking(req: Req, res: Response) {
   }
   await Promise.all([
     Payment.deleteMany({ bookingId: booking._id }),
-    import('../models/Approval').then(({ Approval }) =>
+    import('../models/Approval.js').then(({ Approval }) =>
       Approval.deleteMany({ entityType: 'booking', entityId: booking._id }),
     ),
     Unit.updateMany(

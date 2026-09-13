@@ -180,7 +180,7 @@ export async function getInventorySummary(req: Req, res: Response) {
 
   // Revenue generated = payments received for units in this scope.
   const paymentMatch: Record<string, unknown> = { ...match, status: 'paid' };
-  const revenueAgg = await import('../models/Payment').then(({ Payment }) =>
+  const revenueAgg = await import('../models/Payment.js').then(({ Payment }) =>
     Payment.aggregate([
       { $match: paymentMatch },
       { $group: { _id: null, total: { $sum: '$amount' } } },

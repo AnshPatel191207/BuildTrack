@@ -195,7 +195,7 @@ export async function convertLead(req: Req, res: Response) {
     throw ApiError.notFound('Lead not found.');
   }
   const { customerId } = req.validatedBody;
-  const customer = await import('../models/Customer').then(({ Customer }) =>
+  const customer = await import('../models/Customer.js').then(({ Customer }) =>
     Customer.findOne({ _id: customerId, companyId: user.companyId }),
   );
   if (!customer) throw ApiError.badRequest('Customer not found for conversion.');
@@ -203,7 +203,7 @@ export async function convertLead(req: Req, res: Response) {
   lead.customerId = customer._id;
   lead.stage = 'booked';
   await lead.save();
-  await import('../models/Customer').then(async ({ pushCustomerStage }) => {
+  await import('../models/Customer.js').then(async ({ pushCustomerStage }) => {
     await pushCustomerStage(customer._id, 'inquiry', `Converted from lead ${lead.name}`);
   });
 

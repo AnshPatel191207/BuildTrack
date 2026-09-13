@@ -9,7 +9,7 @@ export async function listWorkers(req: Request & { validatedQuery?: any }, res: 
   const user = req.user! as AuthUser;
   const q = req.validatedQuery ?? {};
   const projectFilter = await accessibleProjectsFilter(user);
-  const projects = await (await import('../models/Project')).Project.find(projectFilter).select('_id');
+  const projects = await (await import('../models/Project.js')).Project.find(projectFilter).select('_id');
   const projectIds = projects.map((p: any) => p._id);
 
   const filter: Record<string, unknown> = {

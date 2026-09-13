@@ -44,7 +44,7 @@ export async function generateReport(req: Req, res: Response) {
     await assertProjectAccess(user, q.projectId);
     projectFilter = { ...projectFilter, _id: q.projectId };
   }
-  const projects: any[] = await import('../models/Project').then(({ Project }) =>
+  const projects: any[] = await import('../models/Project.js').then(({ Project }) =>
     Project.find(projectFilter).lean(),
   );
   const projectIds = projects.map((p) => p._id);
@@ -54,13 +54,13 @@ export async function generateReport(req: Req, res: Response) {
     case 'project': {
       const rows = [];
       for (const p of projects) {
-        const expenseAgg = await import('../models/Expense').then(({ Expense }) =>
+        const expenseAgg = await import('../models/Expense.js').then(({ Expense }) =>
           Expense.aggregate([
             { $match: { projectId: p._id, date: { $gte: from, $lt: to } } },
             { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
           ]),
         );
-        const workerCount = await import('../models/Worker').then(({ Worker }) =>
+        const workerCount = await import('../models/Worker.js').then(({ Worker }) =>
           Worker.countDocuments({ projectId: p._id, status: 'active' }),
         );
         rows.push({
@@ -96,7 +96,7 @@ export async function generateReport(req: Req, res: Response) {
     }
 
     case 'sales': {
-      const { Lead } = await import('../models/Lead');
+      const { Lead } = await import('../models/Lead.js');
       const [byStage, bySource, bookings] = await Promise.all([
         Lead.aggregate([
           { $match: { companyId: user.companyId, createdAt: { $gte: from, $lt: to } } },
@@ -113,7 +113,7 @@ export async function generateReport(req: Req, res: Response) {
           },
           { $sort: { count: -1 } },
         ]),
-        import('../models/Booking').then(({ Booking }) =>
+        import('../models/Booking.js').then(({ Booking }) =>
           Booking.find({
             companyId: user.companyId,
             bookingDate: { $gte: from, $lt: to },
@@ -153,7 +153,7 @@ export async function generateReport(req: Req, res: Response) {
     }
 
     case 'booking': {
-      const { Booking } = await import('../models/Booking');
+      const { Booking } = await import('../models/Booking.js');
       const filter: Record<string, unknown> = {
         companyId: user.companyId,
         projectId: { $in: projectIds },
@@ -197,7 +197,7 @@ export async function generateReport(req: Req, res: Response) {
     }
 
     case 'payment': {
-      const { Payment } = await import('../models/Payment');
+      const { Payment } = await import('../models/Payment.js');
       const match: Record<string, unknown> = {
         companyId: user.companyId,
         projectId: { $in: projectIds },
@@ -237,15 +237,15 @@ export async function generateReport(req: Req, res: Response) {
     }
 
     case 'progress': {
-      const { ConstructionStage, STANDARD_STAGE_NAMES } = await import('../models/ConstructionStage');
-      const { ProjectNode } = await import('../models/ProjectNode');
+      const { ConstructionStage, STANDARD_STAGE_NAMES } = await import('../models/ConstructionStage.js');
+      const { ProjectNode } = await import('../models/ProjectNode.js');
       const [stages, blocks, workAgg] = await Promise.all([
         ConstructionStage.find({ projectId: { $in: projectIds } }).sort({ order: 1 }),
         ProjectNode.find({ projectId: { $in: projectIds }, nodeType: 'block' }).populate(
           'projectId',
           'name',
         ),
-        import('../models/WorkItem').then(({ WorkItem }) =>
+        import('../models/WorkItem.js').then(({ WorkItem }) =>
           WorkItem.aggregate([
             { $match: { projectId: { $in: projectIds } } },
             {
@@ -296,8 +296,8 @@ export async function generateReport(req: Req, res: Response) {
     }
 
     case 'vendor': {
-      const { Vendor } = await import('../models/Vendor');
-      const { PurchaseOrder } = await import('../models/PurchaseOrder');
+      const { Vendor } = await import('../models/Vendor.js');
+      const { PurchaseOrder } = await import('../models/PurchaseOrder.js');
       const vendors = await Vendor.find({ companyId: user.companyId }).sort({ name: 1 });
       const stats = await PurchaseOrder.aggregate([
         {
@@ -347,7 +347,7 @@ export async function generateReport(req: Req, res: Response) {
     }
 
     case 'contractor': {
-      const contracts = await import('../models/Contractor').then(({ ContractorContract }) =>
+      const contracts = await import('../models/Contractor.js').then(({ ContractorContract }) =>
         ContractorContract.find({ projectId: { $in: projectIds } })
           .populate('contractorId', 'name companyName phone workTypes')
           .populate('projectId', 'name'),
@@ -377,7 +377,7 @@ export async function generateReport(req: Req, res: Response) {
     }
 
     case 'attendance': {
-      const rows = await import('../models/Attendance').then(({ Attendance }) =>
+      const rows = await import('../models/Attendance.js').then(({ Attendance }) =>
         Attendance.aggregate([
           {
             $match: {
@@ -400,7 +400,7 @@ export async function generateReport(req: Req, res: Response) {
         ]),
       );
       const workerIds = rows.map((r: any) => r._id.workerId);
-      const workers = await import('../models/Worker').then(({ Worker }) =>
+      const workers = await import('../models/Worker.js').then(({ Worker }) =>
         Worker.find({ _id: { $in: workerIds } }).select('name dailyWage workerType'),
       );
       type WorkerInfo = { name?: string; dailyWage?: number; workerType?: string };
@@ -438,7 +438,7 @@ export async function generateReport(req: Req, res: Response) {
     }
 
     case 'expense': {
-      const { Expense } = await import('../models/Expense');
+      const { Expense } = await import('../models/Expense.js');
       const match: Record<string, unknown> = {
         companyId: user.companyId,
         projectId: { $in: projectIds },
@@ -483,7 +483,7 @@ export async function generateReport(req: Req, res: Response) {
     }
 
     case 'inventory': {
-      const { Unit } = await import('../models/Unit');
+      const { Unit } = await import('../models/Unit.js');
       const [units, summary] = await Promise.all([
         Unit.find({ companyId: user.companyId, projectId: { $in: projectIds } }).sort({
           projectId: 1,

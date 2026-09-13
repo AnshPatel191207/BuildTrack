@@ -26,7 +26,7 @@ export async function financialAnalytics(req: Req, res: Response) {
     await assertProjectAccess(user, String(q.projectId));
     projectFilter = { ...projectFilter, _id: q.projectId };
   }
-  const projects = await import('../models/Project').then(({ Project }) =>
+  const projects = await import('../models/Project.js').then(({ Project }) =>
     Project.find(projectFilter).select('name budget spentAmount progressPercentage status').lean(),
   );
   const projectIds = projects.map((p: any) => p._id);
@@ -44,7 +44,7 @@ export async function financialAnalytics(req: Req, res: Response) {
     cashFlow,
     paymentByMethod,
   ] = await Promise.all([
-    import('../models/Payment').then(async ({ Payment }) =>
+    import('../models/Payment.js').then(async ({ Payment }) =>
       Payment.aggregate([
         {
           $match: {
@@ -57,13 +57,13 @@ export async function financialAnalytics(req: Req, res: Response) {
         { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
       ]),
     ),
-    import('../models/Payment').then(({ Payment }) =>
+    import('../models/Payment.js').then(({ Payment }) =>
       Payment.aggregate([
         { $match: { companyId: user.companyId, projectId: { $in: projectIds }, status: 'pending' } },
         { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
       ]),
     ),
-    import('../models/Payment').then(({ Payment }) =>
+    import('../models/Payment.js').then(({ Payment }) =>
       Payment.aggregate([
         {
           $match: {
@@ -76,7 +76,7 @@ export async function financialAnalytics(req: Req, res: Response) {
         { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
       ]),
     ),
-    import('../models/PurchaseOrder').then(({ PurchaseOrder }) =>
+    import('../models/PurchaseOrder.js').then(({ PurchaseOrder }) =>
       PurchaseOrder.aggregate([
         {
           $match: {
@@ -92,7 +92,7 @@ export async function financialAnalytics(req: Req, res: Response) {
         { $group: { _id: null, total: { $sum: '$unpaid' }, count: { $sum: 1 } } },
       ]),
     ),
-    import('../models/Contractor').then(({ ContractorContract }) =>
+    import('../models/Contractor.js').then(({ ContractorContract }) =>
       ContractorContract.aggregate([
         {
           $match: {
@@ -108,7 +108,7 @@ export async function financialAnalytics(req: Req, res: Response) {
         { $group: { _id: null, total: { $sum: '$pending' } } },
       ]),
     ),
-    import('../models/Expense').then(({ Expense }) =>
+    import('../models/Expense.js').then(({ Expense }) =>
       Expense.aggregate([
         {
           $match: {
@@ -122,7 +122,7 @@ export async function financialAnalytics(req: Req, res: Response) {
       ]),
     ),
     buildCashFlow(projectIds, user.companyId),
-    import('../models/Payment').then(({ Payment }) =>
+    import('../models/Payment.js').then(({ Payment }) =>
       Payment.aggregate([
         {
           $match: {
@@ -206,7 +206,7 @@ async function buildCashFlow(projectIds: unknown[], companyId: unknown) {
   }
 
   const [inflow, outflow] = await Promise.all([
-    import('../models/Payment').then(({ Payment }) =>
+    import('../models/Payment.js').then(({ Payment }) =>
       Payment.aggregate([
         {
           $match: {
@@ -224,7 +224,7 @@ async function buildCashFlow(projectIds: unknown[], companyId: unknown) {
         },
       ]),
     ),
-    import('../models/Expense').then(({ Expense }) =>
+    import('../models/Expense.js').then(({ Expense }) =>
       Expense.aggregate([
         {
           $match: {
@@ -267,7 +267,7 @@ export async function executiveDashboard(req: Req, res: Response) {
   const user = req.user! as AuthUser;
   const q = req.validatedQuery ?? {};
   const projectFilter = await accessibleProjectsFilter(user);
-  const projects = await import('../models/Project').then(({ Project }) =>
+  const projects = await import('../models/Project.js').then(({ Project }) =>
     Project.find(projectFilter).select('name status budget spentAmount progressPercentage expectedEndDate').lean(),
   );
   const projectIds = projects.map((p: any) => p._id);
@@ -290,19 +290,19 @@ export async function executiveDashboard(req: Req, res: Response) {
     pendingApprovals,
     overduePaymentsTop,
   ] = await Promise.all([
-    import('../models/Payment').then(({ Payment }) =>
+    import('../models/Payment.js').then(({ Payment }) =>
       Payment.aggregate([
         { $match: { companyId: user.companyId, projectId: { $in: projectIds }, status: 'paid' } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
     ),
-    import('../models/Payment').then(({ Payment }) =>
+    import('../models/Payment.js').then(({ Payment }) =>
       Payment.aggregate([
         { $match: { companyId: user.companyId, projectId: { $in: projectIds }, status: 'pending' } },
         { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
       ]),
     ),
-    import('../models/Payment').then(({ Payment }) =>
+    import('../models/Payment.js').then(({ Payment }) =>
       Payment.aggregate([
         {
           $match: {
@@ -315,7 +315,7 @@ export async function executiveDashboard(req: Req, res: Response) {
         { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
       ]),
     ),
-    import('../models/PurchaseOrder').then(({ PurchaseOrder }) =>
+    import('../models/PurchaseOrder.js').then(({ PurchaseOrder }) =>
       PurchaseOrder.aggregate([
         {
           $match: {
@@ -328,14 +328,14 @@ export async function executiveDashboard(req: Req, res: Response) {
         { $group: { _id: null, total: { $sum: '$unpaid' }, count: { $sum: 1 } } },
       ]),
     ),
-    import('../models/Contractor').then(({ ContractorContract }) =>
+    import('../models/Contractor.js').then(({ ContractorContract }) =>
       ContractorContract.aggregate([
         { $match: { status: { $ne: 'terminated' } } },
         { $addFields: { pending: { $max: [{ $subtract: ['$contractValue', '$paidAmount'] }, 0] } } },
         { $group: { _id: null, total: { $sum: '$pending' } } },
       ]),
     ),
-    import('../models/Booking').then(async ({ Booking }) => {
+    import('../models/Booking.js').then(async ({ Booking }) => {
       const count = await Booking.countDocuments({
         companyId: user.companyId,
         createdAt: { $gte: monthStart },
@@ -343,13 +343,13 @@ export async function executiveDashboard(req: Req, res: Response) {
       });
       return count;
     }),
-    import('../models/Booking').then(({ Booking }) =>
+    import('../models/Booking.js').then(({ Booking }) =>
       Booking.aggregate([
         { $match: { companyId: user.companyId, status: { $in: ['confirmed', 'sold'] } } },
         { $group: { _id: null, total: { $sum: '$totalValue' }, count: { $sum: 1 } } },
       ]),
     ),
-    import('../models/Unit').then(({ Unit }) =>
+    import('../models/Unit.js').then(({ Unit }) =>
       Unit.aggregate([
         { $match: { companyId: user.companyId, projectId: { $in: projectIds } } },
         {
@@ -361,7 +361,7 @@ export async function executiveDashboard(req: Req, res: Response) {
         },
       ]),
     ),
-    import('../models/Milestone').then(({ Milestone }) =>
+    import('../models/Milestone.js').then(({ Milestone }) =>
       Milestone.find({
         companyId: user.companyId,
         completedAt: null,
@@ -372,7 +372,7 @@ export async function executiveDashboard(req: Req, res: Response) {
         .populate('projectId', 'name')
         .lean(),
     ),
-    import('../models/Milestone').then(({ Milestone }) =>
+    import('../models/Milestone.js').then(({ Milestone }) =>
       Milestone.find({
         companyId: user.companyId,
         completedAt: null,
@@ -383,17 +383,17 @@ export async function executiveDashboard(req: Req, res: Response) {
         .populate('projectId', 'name')
         .lean(),
     ),
-    import('../models/Material').then(({ Material }) =>
+    import('../models/Material.js').then(({ Material }) =>
       Material.countDocuments({
         companyId: user.companyId,
         projectId: { $in: projectIds },
         $expr: { $and: [{ $gt: ['$minimumStock', 0] }, { $lte: ['$currentStock', '$minimumStock'] }] },
       }),
     ),
-    import('../models/Approval').then(({ Approval }) =>
+    import('../models/Approval.js').then(({ Approval }) =>
       Approval.countDocuments({ companyId: user.companyId, status: 'pending' }),
     ),
-    import('../models/Payment').then(({ Payment }) =>
+    import('../models/Payment.js').then(({ Payment }) =>
       Payment.find({
         companyId: user.companyId,
         status: 'pending',

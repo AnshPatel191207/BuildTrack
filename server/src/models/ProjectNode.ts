@@ -57,7 +57,7 @@ export const ProjectNode = (mongoose.models.ProjectNode ??
  * sub-levels and work items attached directly to it.
  */
 export async function recalcNodeProgress(nodeId: unknown): Promise<number> {
-  const { WorkItem } = await import('./WorkItem');
+  const { WorkItem } = await import('./WorkItem.js');
   const [children, items] = await Promise.all([
     ProjectNode.find({ parentId: nodeId }).select('progressPercentage'),
     WorkItem.find({ nodeId }).select('progressPercentage'),
@@ -94,7 +94,7 @@ export async function refreshAncestorProgress(
     parentId: null,
   }).select('progressPercentage');
   if (roots.length > 0) {
-    const { Project } = await import('./Project');
+    const { Project } = await import('./Project.js');
     const overall = Math.round(
       roots.reduce((s: number, r: any) => s + (r.progressPercentage ?? 0), 0) / roots.length,
     );

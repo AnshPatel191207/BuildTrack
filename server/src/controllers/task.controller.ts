@@ -15,7 +15,7 @@ export async function listTasks(req: Request & { validatedQuery?: any }, res: Re
     projectIds = [p._id];
   } else {
     const projects = await (
-      await import('../models/Project')
+      await import('../models/Project.js')
     ).Project.find(await accessibleProjectsFilter(user)).select('_id');
     projectIds = projects.map((p: any) => p._id);
   }
@@ -77,8 +77,8 @@ export async function updateTask(req: Request & { validatedBody?: any }, res: Re
 
   // Notify assignee when a task is assigned to them.
   if (body.assignedTo && String(body.assignedTo) !== String(task.assignedTo ?? '')) {
-    const { notifyUsers } = await import('../services/notification.service');
-    const project = await (await import('../models/Project')).Project.findById(
+    const { notifyUsers } = await import('../services/notification.service.js');
+    const project = await (await import('../models/Project.js')).Project.findById(
       task.projectId,
     ).select('name');
     await notifyUsers([

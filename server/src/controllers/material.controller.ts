@@ -17,7 +17,7 @@ export async function listMaterials(req: Request & { validatedQuery?: any }, res
     projectIds = [q.projectId];
   } else {
     const projects = await (
-      await import('../models/Project')
+      await import('../models/Project.js')
     ).Project.find(await accessibleProjectsFilter(user)).select('_id');
     projectIds = projects.map((p: any) => p._id);
   }
@@ -191,10 +191,10 @@ export async function createMaterialTransaction(req: Request, res: Response) {
   // Low-stock notification.
   if (updated.minimumStock > 0 && updated.currentStock <= updated.minimumStock) {
     const project = await (
-      await import('../models/Project')
+      await import('../models/Project.js')
     ).Project.findById(material.projectId).select('name projectManagerId companyId');
     const company = await (
-      await import('../models/Company')
+      await import('../models/Company.js')
     ).Company.findById(project?.companyId).select('ownerId');
     await notifyProjectStakeholders({
       ownerId: company?.ownerId,

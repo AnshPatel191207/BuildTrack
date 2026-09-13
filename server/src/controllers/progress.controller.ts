@@ -217,7 +217,7 @@ export async function getProgressDashboard(req: Req & { params: { id: string } }
       .select('nodeId name progressPercentage status stageName startDate endDate')
       .lean(),
     ConstructionStage.find({ projectId: project._id }).sort({ order: 1 }).lean(),
-    import('../models/Milestone').then(({ Milestone }) =>
+    import('../models/Milestone.js').then(({ Milestone }) =>
       Milestone.find({ projectId: project._id }).sort({ dueDate: 1 }).lean(),
     ),
   ]);

@@ -16,7 +16,7 @@ import type { Request, Response } from 'express';
 type Req = Request & { validatedBody?: any; validatedQuery?: any };
 
 async function getCompanyOwnerId(companyId: unknown): Promise<unknown | null> {
-  const { Company } = await import('../models/Company');
+  const { Company } = await import('../models/Company.js');
   const company = await Company.findById(companyId).select('ownerId');
   return company?.ownerId ?? null;
 }
@@ -98,7 +98,7 @@ export async function createPurchaseOrder(req: Req, res: Response) {
 }
 
 async function submitForApproval(po: any, user: AuthUser): Promise<void> {
-  const { Approval, APPROVAL_CHAINS } = await import('../models/Approval');
+  const { Approval, APPROVAL_CHAINS } = await import('../models/Approval.js');
   const exists = await Approval.exists({ entityType: 'purchase_order', entityId: po._id });
   if (exists) return;
 
@@ -197,7 +197,7 @@ export async function getPurchaseOrder(req: Req, res: Response) {
   if (!po || !po.companyId.equals(user.companyId!)) {
     throw ApiError.notFound('Purchase order not found.');
   }
-  const approval = await import('../models/Approval').then(({ Approval }) =>
+  const approval = await import('../models/Approval.js').then(({ Approval }) =>
     Approval.findOne({ entityType: 'purchase_order', entityId: po._id })
       .populate('steps.actedBy', 'name')
       .populate('requestedBy', 'name'),
@@ -308,7 +308,7 @@ export async function transitionPurchaseOrder(req: Req, res: Response) {
         { $group: { _id: '$projectId', total: { $sum: '$amount' } } },
       ]).then(async ([agg]: any[]) => {
         if (agg) {
-          const { Project } = await import('../models/Project');
+          const { Project } = await import('../models/Project.js');
           await Project.updateOne(
             { _id: po.projectId },
             { $set: { spentAmount: Math.round(agg.total) } },
@@ -344,7 +344,7 @@ export async function transitionPurchaseOrder(req: Req, res: Response) {
         throw ApiError.badRequest('Delivered or closed POs cannot be cancelled.');
       }
       po.status = 'cancelled';
-      await import('../models/Approval').then(({ Approval }) =>
+      await import('../models/Approval.js').then(({ Approval }) =>
         Approval.updateMany(
           { entityType: 'purchase_order', entityId: po._id, status: 'pending' },
           { $set: { status: 'rejected' } },

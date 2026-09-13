@@ -14,7 +14,7 @@ export async function listReports(req: Req, res: Response) {
   let filter = await accessibleProjectsFilter(user);
   filter = { ...filter };
   if (q.projectId) filter._id = q.projectId;
-  const projects = await import('../models/Project').then(({ Project }) =>
+  const projects = await import('../models/Project.js').then(({ Project }) =>
     Project.find(filter).select('_id').lean(),
   );
   const projectIds = projects.map((p: any) => p._id);

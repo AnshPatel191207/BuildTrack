@@ -269,7 +269,7 @@ export async function recordContractPayment(req: Req, res: Response) {
   }
   await Promise.all([payment.save(), contract.save()]);
 
-  const ownerId = await import('../models/Company').then(({ Company }) =>
+  const ownerId = await import('../models/Company.js').then(({ Company }) =>
     Company.findById(contract.companyId).select('ownerId').then((c: any) => c?.ownerId),
   );
   await notifyUsers([

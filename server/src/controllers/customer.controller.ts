@@ -75,7 +75,7 @@ export async function getCustomer(req: Req, res: Response) {
   if (!customer || !customer.companyId.equals(user.companyId!)) {
     throw ApiError.notFound('Customer not found.');
   }
-  const { Booking } = await import('../models/Booking');
+  const { Booking } = await import('../models/Booking.js');
   const bookings = await Booking.find({ customerId: customer._id })
     .select('bookingNumber status bookingDate totalValue bookingAmount unitId')
     .populate('unitId', 'unitNumber unitType')
@@ -123,7 +123,7 @@ export async function deleteCustomer(req: Req, res: Response) {
   if (!customer || !customer.companyId.equals(user.companyId!)) {
     throw ApiError.notFound('Customer not found.');
   }
-  const activeBooking = await import('../models/Booking').then(({ Booking }) =>
+  const activeBooking = await import('../models/Booking.js').then(({ Booking }) =>
     Booking.exists({ customerId: customer._id, status: { $in: ['pending', 'confirmed'] } }),
   );
   if (activeBooking) {
@@ -148,7 +148,7 @@ export async function addTimelineEvent(req: Req, res: Response) {
     throw ApiError.notFound('Customer not found.');
   }
   const { stage, note } = req.validatedBody as { stage: string; note?: string };
-  const { pushCustomerStage } = await import('../models/Customer');
+  const { pushCustomerStage } = await import('../models/Customer.js');
   await pushCustomerStage(customer._id, stage as any, note);
   const updated = await Customer.findById(customer._id).populate('projectId', 'name');
   sendSuccess(res, updated, `Journey updated to "${stage}".`);

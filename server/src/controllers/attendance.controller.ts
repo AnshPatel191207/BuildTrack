@@ -45,7 +45,7 @@ export async function listAttendance(req: Request & { validatedQuery?: any }, re
     filter.projectId = q.projectId;
   } else {
     const projectFilter = await accessibleProjectsFilter(user);
-    const projects = await (await import('../models/Project')).Project.find(projectFilter).select('_id');
+    const projects = await (await import('../models/Project.js')).Project.find(projectFilter).select('_id');
     filter.projectId = { $in: projects.map((p: any) => p._id) };
   }
   if (q.date) filter.date = utcDay(q.date);
@@ -134,7 +134,7 @@ export async function bulkMarkAttendance(req: Request, res: Response) {
   await assertProjectAccess(user, projectId);
 
   // Site geofence config (if the project has saved coordinates).
-  const projectDoc = await (await import('../models/Project')).Project
+  const projectDoc = await (await import('../models/Project.js')).Project
     .findById(projectId)
     .select('latitude longitude siteRadiusMeters');
   const siteGeo = projectDoc?.latitude != null && projectDoc?.longitude != null
@@ -159,11 +159,11 @@ export async function bulkMarkAttendance(req: Request, res: Response) {
     status: 'active',
   });
   if (totalWorkers >= 3 && absentees / Math.max(totalWorkers, entries.length) > 0.3) {
-    const project = await (await import('../models/Project')).Project.findById(projectId).select(
+    const project = await (await import('../models/Project.js')).Project.findById(projectId).select(
       'name projectManagerId companyId',
     );
     const company = await (
-      await import('../models/Company')
+      await import('../models/Company.js')
     ).Company.findById(project?.companyId).select('ownerId');
     await notifyProjectStakeholders({
       ownerId: company?.ownerId,

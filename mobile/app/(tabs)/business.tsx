@@ -30,6 +30,109 @@ export default function BusinessScreen() {
 
   const sections: HubSection[] = [
     {
+      title: 'Property ERP (Builder & Real Estate)',
+      items: [
+        {
+          label: 'Property Dashboard',
+          sublabel: 'Executive KPI & real estate cockpit',
+          icon: 'speedometer-outline',
+          route: '/property/dashboard',
+          perm: ['canViewDashboard'],
+        },
+        {
+          label: 'Property Projects',
+          sublabel: 'RERA registered developments',
+          icon: 'business-outline',
+          route: '/property/projects',
+          perm: ['canCreateProject', 'canEditProject'],
+        },
+        {
+          label: 'Towers & Wings',
+          sublabel: 'Wings, towers & structural blocks',
+          icon: 'business',
+          route: '/property/towers',
+          perm: ['canManageTowers', 'canManageStructure'],
+        },
+        {
+          label: 'Floors',
+          sublabel: 'Floor levels & storey plans',
+          icon: 'layers-outline',
+          route: '/property/floors',
+          perm: ['canManageFloors', 'canManageStructure'],
+        },
+        {
+          label: 'Flats & Apartments',
+          sublabel: 'Residential inventory & pricing',
+          icon: 'home-outline',
+          route: '/property/flats',
+          perm: ['canManageFlats', 'canManageUnits'],
+        },
+        {
+          label: 'Commercial Shops',
+          sublabel: 'Retail & showroom inventory',
+          icon: 'storefront-outline',
+          route: '/property/shops',
+          perm: ['canManageShops', 'canManageUnits'],
+        },
+        {
+          label: 'Buyers & CRM (360°)',
+          sublabel: 'KYC, bookings, dues & receipts',
+          icon: 'people-circle-outline',
+          route: '/property/customers',
+          perm: ['canManageCustomers'],
+        },
+        {
+          label: 'Property Bookings',
+          sublabel: 'Sales, discounts & milestones',
+          icon: 'document-text-outline',
+          route: '/property/bookings',
+          perm: ['canManageBookings'],
+        },
+        {
+          label: 'Receivables & Dues',
+          sublabel: 'Record installments & collections',
+          icon: 'cash-outline',
+          route: '/property/payments',
+          perm: ['canManagePayments', 'canViewReceivables'],
+        },
+        {
+          label: 'Official Receipts (QR)',
+          sublabel: 'Instant PDF receipts & verification',
+          icon: 'receipt-outline',
+          route: '/property/receipts',
+          perm: ['canGenerateReceipts', 'canManagePayments'],
+        },
+        {
+          label: 'Banakhat (Agreement)',
+          sublabel: 'RERA legal agreement generator',
+          icon: 'document-attach-outline',
+          route: '/property/banakhat',
+          perm: ['canGenerateBanakhat', 'canManageBookings'],
+        },
+        {
+          label: 'Dastavej (Sale Deed)',
+          sublabel: 'Conveyance deed & registration',
+          icon: 'ribbon-outline',
+          route: '/property/dastavej',
+          perm: ['canGenerateDastavej', 'canManageBookings'],
+        },
+        {
+          label: 'Property Reports',
+          sublabel: 'Excel & PDF registers & ledgers',
+          icon: 'stats-chart-outline',
+          route: '/property/reports',
+          perm: ['canViewPropertyReports', 'canManageReports'],
+        },
+        {
+          label: 'Excel Bulk Import',
+          sublabel: 'Bulk import towers, floors & units',
+          icon: 'cloud-upload-outline',
+          route: '/property/import',
+          perm: ['canImportInventory', 'canManageUnits'],
+        },
+      ],
+    },
+    {
       title: 'Sales & CRM',
       items: [
         {

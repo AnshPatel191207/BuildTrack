@@ -48,7 +48,7 @@ export async function registerAndLogin(
     .send({
       name: 'Test Owner',
       email: `owner${Math.random().toString(36).slice(2)}@test.in`,
-      phone: '9876543210',
+      phone: `9${Math.floor(100000000 + Math.random() * 900000000)}`,
       password: 'Password1',
       ...overrides,
     });
@@ -110,7 +110,7 @@ export async function addTeamMember(
     .send({
       name: `${role[0].toUpperCase()}${role.slice(1)} User`,
       email,
-      phone: '9812345678',
+      phone: `9${Math.floor(100000000 + Math.random() * 900000000)}`,
       role,
       password: 'Password1',
       assignedProjects: projectIds,

@@ -24,10 +24,13 @@ export interface Pagination {
 export type UserRole =
   | 'super_admin'
   | 'owner'
+  | 'admin'
   | 'project_manager'
   | 'site_engineer'
   | 'accountant'
   | 'sales_manager'
+  | 'sales_executive'
+  | 'receptionist'
   | 'supervisor'
   | 'manager'
   | 'engineer'
@@ -57,6 +60,17 @@ export const PERMISSION_KEYS = [
   'canManageBookings',
   'canApproveBookings',
   'canManageUnits',
+  // Property ERP specific
+  'canManageTowers',
+  'canManageFloors',
+  'canManageFlats',
+  'canManageShops',
+  'canImportInventory',
+  'canGenerateReceipts',
+  'canGenerateBanakhat',
+  'canGenerateDastavej',
+  'canManageTemplates',
+  'canViewPropertyReports',
   'canManageVendors',
   'canManageContractors',
   'canManagePurchaseOrders',
@@ -450,14 +464,28 @@ export interface Unit {
   projectId: string | Pick<Project, '_id' | 'name'>;
   phaseId?: string | { _id: string; name: string } | null;
   blockId?: string | { _id: string; name: string } | null;
+  towerId?: string | { _id: string; name: string } | null;
   floorId?: string | { _id: string; name: string } | null;
+  category?: 'flat' | 'shop' | 'office' | 'penthouse' | 'plot';
   unitNumber: string;
   unitType: string;
   areaSqft: number;
   carpetAreaSqft: number;
+  builtUpAreaSqft?: number;
   superBuiltupAreaSqft: number;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  balconies?: number;
+  floorNumber?: number;
   facing?: string | null;
   ratePerSqft: number;
+  basePrice?: number;
+  parkingSlot?: string | null;
+  parkingCharges?: number;
+  clubhouseCharges?: number;
+  gstPercentage?: number;
+  gstAmount?: number;
+  finalPrice?: number;
   totalValue: number;
   status: UnitStatus;
   currentCustomerId?: { _id: string; name: string; phone?: string } | string | null;
@@ -512,16 +540,32 @@ export interface Customer {
   projectId?: string | Pick<Project, '_id' | 'name'> | null;
   name: string;
   phone: string;
+  alternatePhone?: string | null;
   email?: string | null;
   address?: string | null;
   city?: string | null;
   state?: string | null;
   pan?: string | null;
   aadhaar?: string | null;
+  gstNumber?: string | null;
   occupation?: string | null;
+  photoUrl?: string | null;
   leadSource: LeadSourceType;
   journeyStage: CustomerStage;
   timeline: CustomerTimelineEvent[];
+  nominee?: {
+    name?: string;
+    relation?: string;
+    age?: number;
+    phone?: string;
+    aadhaar?: string;
+  };
+  documents?: {
+    title: string;
+    documentType?: string;
+    url: string;
+    uploadedAt?: string;
+  }[];
   assignedTo?: { _id: string; name: string; role?: string } | string | null;
   isActive?: boolean;
 }
@@ -589,7 +633,18 @@ export interface SalesDashboard {
   upcomingFollowUps: Lead[];
 }
 
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'sold';
+export interface BookingScheduleItem {
+  installmentNo: number;
+  title: string;
+  percentage?: number;
+  amount: number;
+  dueDate: string;
+  status: 'pending' | 'partially_paid' | 'paid' | 'overdue';
+  paidAmount: number;
+  paymentId?: string | null;
+}
+
+export type BookingStatus = 'draft' | 'pending' | 'confirmed' | 'registered' | 'sold' | 'cancelled' | 'completed';
 
 export interface Booking {
   _id: string;
@@ -600,9 +655,18 @@ export interface Booking {
   bookingNumber: string;
   bookingDate: string;
   bookingAmount: number;
+  basePrice?: number;
+  discountAmount?: number;
+  discountReason?: string | null;
+  finalPrice?: number;
   totalValue: number;
   salesManagerId?: { _id: string; name: string } | string | null;
+  salesExecutiveId?: { _id: string; name: string } | string | null;
+  remarks?: string | null;
   status: BookingStatus;
+  paymentSchedule?: BookingScheduleItem[];
+  banakhatDocumentId?: string | null;
+  dastavejDocumentId?: string | null;
   possessionDate?: string | null;
   cancellationReason?: string | null;
   notes?: string;
@@ -613,7 +677,7 @@ export interface Booking {
 
 export type PaymentType = 'booking_amount' | 'installment' | 'milestone' | 'final';
 export type CustomerPaymentMethodType =
-  | 'cash' | 'upi' | 'bank_transfer' | 'card' | 'cheque' | 'loan' | 'other';
+  | 'cash' | 'upi' | 'bank_transfer' | 'card' | 'cheque' | 'loan' | 'neft' | 'rtgs' | 'other';
 export type PaymentStatus = 'pending' | 'paid' | 'cancelled';
 
 export interface Payment {
@@ -624,13 +688,22 @@ export interface Payment {
   customerId: string | Pick<Customer, '_id' | 'name' | 'phone'>;
   unitId?: string | Pick<Unit, '_id' | 'unitNumber'> | null;
   paymentNumber: string;
+  receiptNumber?: string | null;
   amount: number;
   paymentType: PaymentType;
   method: CustomerPaymentMethodType;
+  mode?: string;
+  transactionId?: string | null;
+  bankName?: string | null;
+  chequeNumber?: string | null;
+  chequeDate?: string | null;
+  installmentNo?: number | null;
   dueDate?: string | null;
   paidDate?: string | null;
   status: PaymentStatus;
   reference?: string | null;
+  receiptPdfUrl?: string | null;
+  qrCodeData?: string | null;
   notes?: string;
   isOverdue?: boolean;
 }
@@ -994,6 +1067,193 @@ export interface ReportEnvelope<T = any> {
   totals?: Record<string, number>;
   [key: string]: any;
 }
+
+// ── Property ERP models ──────────────────────────────────────────
+
+export interface PropertyProject extends Project {
+  builderName?: string;
+  reraNumber?: string;
+  launchDate?: string | null;
+  completionDate?: string | null;
+  totalTowers?: number;
+  totalUnits?: number;
+  amenities?: string[];
+  towersCount?: number;
+  inventoryStats?: {
+    available: number;
+    booked: number;
+    sold: number;
+    total: number;
+  };
+}
+
+export interface PropertyTower {
+  _id: string;
+  companyId?: string;
+  projectId: string;
+  name: string;
+  towerNumber?: string;
+  nodeType?: string;
+  description?: string;
+  floorsCount?: number;
+  totalFloors?: number;
+  totalUnits?: number;
+  category?: string;
+  unitsCount?: {
+    total: number;
+    available: number;
+    booked: number;
+    sold: number;
+  };
+  createdAt?: string;
+}
+
+export interface PropertyFloor {
+  _id: string;
+  companyId?: string;
+  projectId: string;
+  parentId?: string; // towerId
+  towerId?: string;
+  floorNumber?: string | number;
+  name: string;
+  order?: number;
+  orderIndex?: number;
+  totalUnits?: number;
+  description?: string;
+  unitsCount?: {
+    total: number;
+    available: number;
+    booked: number;
+    sold: number;
+  };
+}
+
+export interface PropertyUnit extends Unit {
+  towerName?: string;
+  floorName?: string;
+}
+
+export interface PropertyCustomer extends Customer {
+  panNumber?: string;
+  aadhaarNumber?: string;
+  stage?: string;
+}
+
+export type PropertyBooking = Booking;
+export type PropertyPayment = Payment;
+
+export interface Customer360Response {
+  customer: PropertyCustomer;
+  bookings: PropertyBooking[];
+  financials: {
+    totalBilled: number;
+    totalPaid: number;
+    balanceDue: number;
+  };
+  receipts: PropertyPayment[];
+  documents: PropertyDocumentItem[];
+}
+
+export interface PropertyDocumentItem {
+  _id: string;
+  companyId?: string;
+  projectId?: string | { _id: string; name: string };
+  bookingId?: string | { _id: string; bookingNumber: string } | null;
+  customerId?: string | { _id: string; name: string; phone?: string };
+  unitId?: string | { _id: string; unitNumber: string } | null;
+  documentType: 'receipt' | 'banakhat' | 'dastavej' | 'booking_confirmation' | 'demand_letter';
+  documentNumber: string;
+  title: string;
+  renderedContent?: string | null;
+  pdfUrl?: string | null;
+  status: 'draft' | 'generated' | 'signed' | 'registered';
+  registrationDetails?: {
+    registrationNumber?: string;
+    registrationDate?: string;
+    subRegistrarOffice?: string;
+    stampDutyPaid?: number;
+    registrationFee?: number;
+  };
+  createdAt: string;
+}
+
+export interface PropertyDocumentTemplate {
+  _id: string;
+  companyId: string;
+  templateType: 'receipt' | 'banakhat' | 'dastavej' | 'booking_confirmation' | 'demand_letter';
+  title: string;
+  headerHtml?: string | null;
+  bodyContent: string;
+  footerHtml?: string | null;
+  termsAndConditions?: string[];
+  isDefault: boolean;
+}
+
+export interface PropertyDashboardStats {
+  totalUnits?: number;
+  availableUnits?: number;
+  bookedUnits?: number;
+  soldUnits?: number;
+  financials?: {
+    totalSalesValue?: number;
+    totalCollected?: number;
+    totalOutstanding?: number;
+  };
+  inventory: {
+    totalUnits: number;
+    availableUnits: number;
+    bookedUnits: number;
+    soldUnits: number;
+    availableValue: number;
+    bookedValue: number;
+    soldValue: number;
+  };
+  collections: {
+    today: number;
+    todayCount: number;
+    monthly: number;
+    monthlyCount: number;
+    pending: number;
+    pendingCount: number;
+    overdue: number;
+    overdueCount: number;
+  };
+  recentBookings: (Booking & {
+    customerId?: { name: string; phone: string };
+    projectId?: { name: string };
+    unitId?: { unitNumber: string; unitType: string };
+  })[];
+  recentReceipts: (Payment & {
+    customerId?: { name: string };
+    unitId?: { unitNumber: string };
+  })[];
+  projectRevenue: {
+    projectId: string;
+    projectName: string;
+    projectCode: string;
+    bookedValue: number;
+    bookingsCount: number;
+  }[];
+}
+
+export interface ExcelImportPreview {
+  totalRows: number;
+  validRows: any;
+  errorRows: number;
+  validCount?: number;
+  errorCount?: number;
+  duplicateCount?: number;
+  errors: {
+    rowNumber?: number;
+    unitNumber?: string;
+    projectName?: string;
+    reason?: string;
+    message?: string;
+  }[];
+  rows?: any[];
+}
+
+
 
 
 

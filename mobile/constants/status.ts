@@ -90,10 +90,13 @@ export const CUSTOMER_STAGE_TONES: Record<CustomerStage, Tone> = {
 };
 
 export const BOOKING_STATUS_TONES: Record<BookingStatus, Tone> = {
+  draft: 'neutral',
   pending: 'warning',
   confirmed: 'success',
+  registered: 'info',
   sold: 'neutral',
   cancelled: 'danger',
+  completed: 'success',
 };
 
 export const PAYMENT_STATUS_TONES: Record<PaymentStatus, Tone> = {

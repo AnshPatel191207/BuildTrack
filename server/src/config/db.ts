@@ -5,8 +5,8 @@ let connected = false;
 
 export async function connectDatabase(): Promise<void> {
   if (connected) return;
-  mongoose.set('strictQuery', true);
-  await mongoose.connect(env.MONGODB_URI, {
+  const uri = process.env.MONGODB_URI || env.MONGODB_URI;
+  await mongoose.connect(uri, {
     autoIndex: !env.isProd,
     serverSelectionTimeoutMS: 10_000,
   });

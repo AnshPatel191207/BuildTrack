@@ -13,6 +13,10 @@ export interface ProjectNodeDocument extends mongoose.HydratedDocument<any> {
   description?: string;
   progressPercentage: number;
   createdBy: any;
+  // Property ERP extensions
+  towerNumber?: string;
+  totalFloors?: number;
+  totalUnits?: number;
 }
 
 const projectNodeSchema = new Schema<ProjectNodeDocument>(
@@ -22,7 +26,7 @@ const projectNodeSchema = new Schema<ProjectNodeDocument>(
     parentId: { type: Schema.Types.ObjectId, ref: 'ProjectNode', default: null, index: true },
     nodeType: {
       type: String,
-      enum: ['phase', 'block', 'floor', 'unit', 'zone', 'area', 'custom'],
+      enum: ['phase', 'block', 'tower', 'floor', 'unit', 'zone', 'area', 'custom'],
       required: true,
       index: true,
     },
@@ -32,6 +36,10 @@ const projectNodeSchema = new Schema<ProjectNodeDocument>(
     description: { type: String, trim: true, maxlength: 500 },
     progressPercentage: { type: Number, default: 0, min: 0, max: 100 },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    // Property ERP extensions
+    towerNumber: { type: String, trim: true, default: null },
+    totalFloors: { type: Number, default: 0, min: 0 },
+    totalUnits: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true },
 );

@@ -33,10 +33,13 @@ const userSchema = new Schema<UserDocument>(
       enum: [
         'super_admin',
         'owner',
+        'admin',
         'project_manager',
         'site_engineer',
         'accountant',
         'sales_manager',
+        'sales_executive',
+        'receptionist',
         'supervisor',
         'manager',
         'engineer',

@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   playIcon: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as any),
     alignItems: 'center',
     justifyContent: 'center',
   },

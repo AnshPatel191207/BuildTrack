@@ -36,6 +36,7 @@ import approvalRoutes from './routes/approval.routes';
 import milestoneRoutes from './routes/milestone.routes';
 import progressRoutes from './routes/progress.routes';
 import analyticsRoutes, { auditRouter } from './routes/analytics.routes';
+import propertyRoutes from './routes/property.routes';
 import { getProgressDashboard } from './controllers/progress.controller';
 
 export function createApp(): express.Express {
@@ -123,6 +124,7 @@ export function createApp(): express.Express {
   app.use('/api/progress', progressRoutes);
   app.use('/api/analytics', analyticsRoutes);
   app.use('/api/audit-logs', auditRouter);
+  app.use('/api/property', propertyRoutes);
 
   // Project-scoped progress dashboard (Module 11).
   app.get('/api/projects/:id/progress', protect, asyncHandler(getProgressDashboard as any));

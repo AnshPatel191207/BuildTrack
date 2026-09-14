@@ -7,10 +7,13 @@ import type { Types } from 'mongoose';
 export type UserRole =
   | 'super_admin'
   | 'owner'
+  | 'admin'
   | 'project_manager'
   | 'site_engineer'
   | 'accountant'
   | 'sales_manager'
+  | 'sales_executive'
+  | 'receptionist'
   | 'supervisor'
   // Legacy aliases kept for backwards compatibility with existing accounts.
   | 'manager'
@@ -19,6 +22,7 @@ export type UserRole =
 
 /** Legacy role → canonical role. */
 export const ROLE_ALIASES: Record<string, string> = {
+  admin: 'owner',
   manager: 'project_manager',
   engineer: 'site_engineer',
 };
@@ -137,16 +141,23 @@ export type PaymentType = 'booking_amount' | 'installment' | 'milestone' | 'fina
 export type CustomerPaymentMethod =
   | PaymentMethod
   | 'cheque'
-  | 'loan';
+  | 'loan'
+  | 'neft'
+  | 'rtgs';
 export type PaymentStatus = 'pending' | 'paid' | 'cancelled';
 export type StructureNodeType =
   | 'phase'
   | 'block'
+  | 'tower'
   | 'floor'
   | 'unit'
   | 'zone'
   | 'area'
   | 'custom';
+
+export type PropertyUnitCategory = 'flat' | 'shop' | 'office' | 'penthouse' | 'plot';
+export type PropertyDocType = 'receipt' | 'banakhat' | 'dastavej' | 'booking_confirmation' | 'demand_letter';
+export type PropertyDocStatus = 'draft' | 'generated' | 'signed' | 'registered';
 export type ConstructionStageName =
   | 'excavation'
   | 'foundation'
@@ -212,6 +223,17 @@ export const PERMISSIONS = [
   'canManageBookings',
   'canApproveBookings',
   'canManageUnits',
+  // Property ERP specific
+  'canManageTowers',
+  'canManageFloors',
+  'canManageFlats',
+  'canManageShops',
+  'canImportInventory',
+  'canGenerateReceipts',
+  'canGenerateBanakhat',
+  'canGenerateDastavej',
+  'canManageTemplates',
+  'canViewPropertyReports',
   // Procurement
   'canManageVendors',
   'canManageContractors',

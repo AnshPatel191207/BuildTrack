@@ -61,7 +61,6 @@ export default function MediaViewerScreen() {
             player={player}
             style={StyleSheet.absoluteFill}
             contentFit="contain"
-            allowsFullscreen
             allowsPictureInPicture
           />
         ) : kind === 'document' ? (
@@ -117,7 +116,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(40,40,40,0.7)',
   },
   stage: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as any),
     justifyContent: 'center',
   },
 });

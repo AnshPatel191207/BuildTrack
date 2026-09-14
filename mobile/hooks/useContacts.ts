@@ -141,10 +141,10 @@ export function useContacts() {
   };
 }
 
-function toContactPerson(c: Contacts.Contact): ContactPerson {
-  const withId = c as Contacts.Contact & { id?: string };
+function toContactPerson(c: any): ContactPerson {
+  const withId = c as { id?: string };
   const primary =
-    c.phoneNumbers?.find((p) => p.isPrimary === true) ?? c.phoneNumbers?.[0] ?? null;
+    c.phoneNumbers?.find((p: any) => p.isPrimary === true) ?? c.phoneNumbers?.[0] ?? null;
   return {
     id: withId.id ?? '',
     name:

@@ -8,6 +8,16 @@ const companySchema = new Schema(
     email: { type: String, lowercase: true, trim: true },
     address: { type: String, trim: true, maxlength: 300 },
     logo: { type: String, default: null },
+    pan: { type: String, trim: true, uppercase: true, default: null },
+    gstin: { type: String, trim: true, uppercase: true, default: null },
+    bankDetails: {
+      bankName: { type: String, trim: true, default: null },
+      accountName: { type: String, trim: true, default: null },
+      accountNumber: { type: String, trim: true, default: null },
+      ifscCode: { type: String, trim: true, uppercase: true, default: null },
+      branch: { type: String, trim: true, default: null },
+      upiId: { type: String, trim: true, default: null },
+    },
   },
   { timestamps: true },
 );

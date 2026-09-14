@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,214,10,0.08)',
   },
   docGuideWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...(StyleSheet.absoluteFill as any),
     alignItems: 'center',
     justifyContent: 'center',
   },

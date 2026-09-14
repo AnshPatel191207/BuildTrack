@@ -16,6 +16,8 @@ const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     'canManageMaterials', 'canManageTasks', 'canUploadMedia',
     'canManageExpenses', 'canApproveExpenses', 'canManagePayments', 'canViewReceivables',
     'canManageCustomers', 'canManageLeads', 'canManageBookings', 'canApproveBookings', 'canManageUnits',
+    'canManageTowers', 'canManageFloors', 'canManageFlats', 'canManageShops', 'canImportInventory',
+    'canGenerateReceipts', 'canGenerateBanakhat', 'canGenerateDastavej', 'canManageTemplates', 'canViewPropertyReports',
     'canManageVendors', 'canManageContractors', 'canManagePurchaseOrders', 'canApprovePurchases',
     'canManageEquipment', 'canManageDocuments', 'canManageTeam', 'canManageCompany',
     'canManageRoles', 'canAuditLogs',
@@ -28,6 +30,21 @@ const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     'canManageMaterials', 'canManageTasks', 'canUploadMedia',
     'canManageExpenses', 'canApproveExpenses', 'canManagePayments', 'canViewReceivables',
     'canManageCustomers', 'canManageLeads', 'canManageBookings', 'canApproveBookings', 'canManageUnits',
+    'canManageTowers', 'canManageFloors', 'canManageFlats', 'canManageShops', 'canImportInventory',
+    'canGenerateReceipts', 'canGenerateBanakhat', 'canGenerateDastavej', 'canManageTemplates', 'canViewPropertyReports',
+    'canManageVendors', 'canManageContractors', 'canManagePurchaseOrders', 'canApprovePurchases',
+    'canManageEquipment', 'canManageDocuments', 'canManageTeam', 'canManageCompany', 'canAuditLogs',
+  ],
+  admin: [
+    'canViewDashboard', 'canViewFinancials', 'canManageReports',
+    'canCreateProject', 'canEditProject', 'canDeleteProject',
+    'canManageStructure', 'canManageProgress',
+    'canMarkAttendance', 'canSubmitDailyReports', 'canManageWorkers',
+    'canManageMaterials', 'canManageTasks', 'canUploadMedia',
+    'canManageExpenses', 'canApproveExpenses', 'canManagePayments', 'canViewReceivables',
+    'canManageCustomers', 'canManageLeads', 'canManageBookings', 'canApproveBookings', 'canManageUnits',
+    'canManageTowers', 'canManageFloors', 'canManageFlats', 'canManageShops', 'canImportInventory',
+    'canGenerateReceipts', 'canGenerateBanakhat', 'canGenerateDastavej', 'canManageTemplates', 'canViewPropertyReports',
     'canManageVendors', 'canManageContractors', 'canManagePurchaseOrders', 'canApprovePurchases',
     'canManageEquipment', 'canManageDocuments', 'canManageTeam', 'canManageCompany', 'canAuditLogs',
   ],
@@ -39,6 +56,7 @@ const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     'canManageExpenses', 'canApproveExpenses', 'canViewReceivables',
     'canManageVendors', 'canManageContractors', 'canManagePurchaseOrders', 'canApprovePurchases',
     'canManageEquipment', 'canManageDocuments',
+    'canManageTowers', 'canManageFloors', 'canViewPropertyReports',
   ],
   site_engineer: [
     'canViewDashboard', 'canMarkAttendance', 'canSubmitDailyReports',
@@ -48,12 +66,21 @@ const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
   accountant: [
     'canViewDashboard', 'canViewFinancials', 'canManageReports',
     'canManageExpenses', 'canApproveExpenses', 'canManagePayments', 'canViewReceivables',
-    'canManageVendors', 'canAuditLogs',
+    'canManageVendors', 'canGenerateReceipts', 'canViewPropertyReports', 'canAuditLogs',
   ],
   sales_manager: [
     'canViewDashboard', 'canManageCustomers', 'canManageLeads', 'canManageBookings',
-    'canManageUnits', 'canManagePayments', 'canViewReceivables', 'canManageReports',
-    'canManageDocuments',
+    'canManageUnits', 'canManageTowers', 'canManageFloors', 'canManageFlats', 'canManageShops',
+    'canImportInventory', 'canManagePayments', 'canViewReceivables', 'canGenerateReceipts',
+    'canGenerateBanakhat', 'canGenerateDastavej', 'canManageTemplates', 'canManageReports',
+    'canManageDocuments', 'canViewPropertyReports',
+  ],
+  sales_executive: [
+    'canViewDashboard', 'canManageCustomers', 'canManageLeads', 'canManageBookings',
+    'canManageUnits', 'canViewReceivables', 'canGenerateReceipts', 'canGenerateBanakhat',
+  ],
+  receptionist: [
+    'canViewDashboard', 'canManageCustomers', 'canManageLeads',
   ],
   supervisor: [
     'canViewDashboard', 'canMarkAttendance', 'canSubmitDailyReports',
@@ -64,6 +91,7 @@ const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
 
 export function normalizeRole(role: string | undefined | null): string {
   if (!role) return '';
+  if (role === 'admin') return 'owner';
   if (role === 'manager') return 'project_manager';
   if (role === 'engineer') return 'site_engineer';
   return role;

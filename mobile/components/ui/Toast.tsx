@@ -72,3 +72,8 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
 });
+
+export function showToast(message: string, tone: 'success' | 'error' | 'info' = 'info') {
+  useUIStore.getState().showToast(message, tone);
+}
+

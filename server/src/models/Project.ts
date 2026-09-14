@@ -20,6 +20,14 @@ export interface ProjectDocument extends mongoose.HydratedDocument<any> {
   progressPercentage: number;
   description?: string;
   projectManagerId?: any | null;
+  // Property ERP extensions
+  builderName?: string;
+  reraNumber?: string;
+  launchDate?: Date | null;
+  completionDate?: Date | null;
+  totalTowers?: number;
+  totalUnits?: number;
+  amenities?: string[];
 }
 
 const projectTypes = [
@@ -62,6 +70,14 @@ const projectSchema = new Schema<ProjectDocument>(
     progressPercentage: { type: Number, default: 0, min: 0, max: 100 },
     description: { type: String, trim: true, maxlength: 1000 },
     projectManagerId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    // Property ERP extensions
+    builderName: { type: String, trim: true, maxlength: 140, default: null },
+    reraNumber: { type: String, trim: true, maxlength: 60, default: null, index: true },
+    launchDate: { type: Date, default: null },
+    completionDate: { type: Date, default: null },
+    totalTowers: { type: Number, default: 0, min: 0 },
+    totalUnits: { type: Number, default: 0, min: 0 },
+    amenities: { type: [String], default: [] },
   },
   { timestamps: true },
 );

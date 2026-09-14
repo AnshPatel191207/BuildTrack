@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
 interface CardProps {
@@ -8,12 +8,13 @@ interface CardProps {
   padded?: boolean;
   title?: string;
   action?: React.ReactNode;
+  onPress?: () => void;
 }
 
 /** Surface container — the base building block for list items and sections. */
-export function Card({ children, style, padded = true, title, action }: CardProps) {
+export function Card({ children, style, padded = true, title, action, onPress }: CardProps) {
   const { colors } = useTheme();
-  return (
+  const inner = (
     <View
       style={[
         styles.card,
@@ -38,6 +39,16 @@ export function Card({ children, style, padded = true, title, action }: CardProp
       {children}
     </View>
   );
+
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}>
+        {inner}
+      </Pressable>
+    );
+  }
+
+  return inner;
 }
 
 const styles = StyleSheet.create({

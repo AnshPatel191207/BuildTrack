@@ -90,7 +90,7 @@ export function BottomSheet({ visible, onClose, title, children, scroll }: Botto
 
 const styles = StyleSheet.create({
   flex: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject },
+  backdrop: { ...(StyleSheet.absoluteFill as any) },
   sheet: {
     width: '100%',
     paddingTop: 8,

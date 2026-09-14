@@ -7,16 +7,32 @@ export interface CustomerDocument extends mongoose.HydratedDocument<any> {
   projectId: any | null;
   name: string;
   phone: string;
+  alternatePhone?: string | null;
   email?: string | null;
   address?: string | null;
   city?: string | null;
   state?: string | null;
   pan?: string | null;
   aadhaar?: string | null;
+  gstNumber?: string | null;
   occupation?: string | null;
+  photoUrl?: string | null;
   leadSource: LeadSource;
   journeyStage: CustomerJourneyStage;
   timeline: { stage: CustomerJourneyStage; note?: string; date: Date }[];
+  nominee?: {
+    name?: string;
+    relation?: string;
+    age?: number;
+    phone?: string;
+    aadhaar?: string;
+  };
+  documents?: {
+    title: string;
+    documentType?: string;
+    url: string;
+    uploadedAt?: Date;
+  }[];
   assignedTo: any | null;
   isActive: boolean;
 }
@@ -34,19 +50,32 @@ const timelineSchema = new Schema(
   { _id: false },
 );
 
+const customerDocSchema = new Schema(
+  {
+    title: { type: String, required: true, trim: true },
+    documentType: { type: String, trim: true, default: 'other' },
+    url: { type: String, required: true },
+    uploadedAt: { type: Date, default: Date.now },
+  },
+  { _id: true },
+);
+
 const customerSchema = new Schema<CustomerDocument>(
   {
     companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
     projectId: { type: Schema.Types.ObjectId, ref: 'Project', default: null, index: true },
     name: { type: String, required: true, trim: true, maxlength: 120 },
     phone: { type: String, required: true, trim: true, maxlength: 15 },
+    alternatePhone: { type: String, trim: true, maxlength: 15, default: null },
     email: { type: String, trim: true, lowercase: true, maxlength: 160, default: null },
     address: { type: String, trim: true, maxlength: 300, default: null },
     city: { type: String, trim: true, maxlength: 80, default: null },
     state: { type: String, trim: true, maxlength: 80, default: null },
     pan: { type: String, trim: true, uppercase: true, maxlength: 10, default: null },
     aadhaar: { type: String, trim: true, default: null },
+    gstNumber: { type: String, trim: true, uppercase: true, maxlength: 15, default: null },
     occupation: { type: String, trim: true, maxlength: 80, default: null },
+    photoUrl: { type: String, default: null },
     leadSource: {
       type: String,
       enum: ['website', 'walk_in', 'reference', 'facebook', 'instagram', 'broker', 'other'],
@@ -60,6 +89,14 @@ const customerSchema = new Schema<CustomerDocument>(
       index: true,
     },
     timeline: { type: [timelineSchema], default: [] },
+    nominee: {
+      name: { type: String, trim: true, default: null },
+      relation: { type: String, trim: true, default: null },
+      age: { type: Number, default: null },
+      phone: { type: String, trim: true, default: null },
+      aadhaar: { type: String, trim: true, default: null },
+    },
+    documents: { type: [customerDocSchema], default: [] },
     assignedTo: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     isActive: { type: Boolean, default: true },
   },

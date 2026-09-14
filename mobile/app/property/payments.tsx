@@ -38,21 +38,28 @@ export default function PropertyPaymentsScreen() {
   const [bankName, setBankName] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Fetch bookings for payment picker
-  const { data: bookings } = useResource<PropertyBooking[]>(
-    () => propertyService.listBookings({ status: 'confirmed' }),
+  // Fetch bookings for payment picker (all active bookings)
+  const { data: bookings, reload: reloadBookings } = useResource<PropertyBooking[]>(
+    () => propertyService.listBookings(),
     [],
   );
 
-  // Auto-fill customer if booking selected
+  const availableBookings = bookings?.filter((b) => b.status !== 'cancelled') || [];
+  const selectedBooking = availableBookings.find((b) => b._id === selectedBookingId);
+
+  // Auto-fill customer if booking selected, or auto-select first booking
   useEffect(() => {
-    if (selectedBookingId && bookings) {
-      const found = bookings.find((b) => b._id === selectedBookingId);
+    if (selectedBookingId && availableBookings.length > 0) {
+      const found = availableBookings.find((b) => b._id === selectedBookingId);
       if (found && (found.customerId as any)?._id) {
         setSelectedCustomerId((found.customerId as any)._id);
       }
+    } else if (!selectedBookingId && availableBookings.length > 0) {
+      setSelectedBookingId(availableBookings[0]._id);
+      const custId = (availableBookings[0].customerId as any)?._id || (availableBookings[0] as any).customerId;
+      if (custId) setSelectedCustomerId(custId);
     }
-  }, [selectedBookingId, bookings]);
+  }, [selectedBookingId, availableBookings]);
 
   // Fetch payments
   const {
@@ -124,7 +131,10 @@ export default function PropertyPaymentsScreen() {
         large
         right={
           <Pressable
-            onPress={() => setModalOpen(true)}
+            onPress={() => {
+              void reloadBookings();
+              setModalOpen(true);
+            }}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -286,34 +296,117 @@ export default function PropertyPaymentsScreen() {
 
             <ScrollView contentContainerStyle={{ gap: 12 }}>
               {/* Select Booking */}
-              <View>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text, marginBottom: 6 }}>
-                  Select Confirmed Booking *
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                  {bookings?.map((b) => {
-                    const active = b._id === selectedBookingId;
-                    return (
-                      <Pressable
-                        key={b._id}
-                        onPress={() => setSelectedBookingId(b._id)}
-                        style={{
-                          paddingHorizontal: 12,
-                          paddingVertical: 7,
-                          borderRadius: radius.md,
-                          backgroundColor: active ? colors.primary : colors.surface,
-                          borderWidth: 1,
-                          borderColor: active ? colors.primary : colors.border,
-                        }}
-                      >
-                        <Text style={{ fontSize: 12, fontWeight: '600', color: active ? '#fff' : colors.text }}>
-                          Unit {(b.unitId as any)?.unitNumber || 'Unit'} • {(b.customerId as any)?.name || 'Customer'}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+              {availableBookings.length === 0 ? (
+                <View
+                  style={{
+                    padding: 14,
+                    backgroundColor: colors.surface,
+                    borderRadius: radius.md,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Ionicons name="information-circle-outline" size={24} color={colors.primary} style={{ marginBottom: 4 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>No Active Bookings Found</Text>
+                  <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 2, marginBottom: 10 }}>
+                    Please create or confirm a booking first before recording installment payments.
+                  </Text>
+                  <Button
+                    label="Go to Bookings"
+                    size="sm"
+                    onPress={() => {
+                      setModalOpen(false);
+                      router.push('/property/bookings' as any);
+                    }}
+                  />
+                </View>
+              ) : (
+                <View>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text, marginBottom: 6 }}>
+                    Select Booking ({availableBookings.length} Available) *
+                  </Text>
+                  <ScrollView
+                    style={{ maxHeight: 150 }}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={true}
+                    contentContainerStyle={{ gap: 6 }}
+                  >
+                    {availableBookings.map((b) => {
+                      const active = b._id === selectedBookingId;
+                      const unitNum = (b.unitId as any)?.unitNumber || 'Unit';
+                      const custName = (b.customerId as any)?.name || 'Customer';
+                      const totalVal = b.totalValue || (b as any).totalAmount || 0;
+                      return (
+                        <Pressable
+                          key={b._id}
+                          onPress={() => {
+                            setSelectedBookingId(b._id);
+                            const custId = (b.customerId as any)?._id || (b as any).customerId;
+                            if (custId) setSelectedCustomerId(custId);
+                          }}
+                          style={{
+                            padding: 10,
+                            borderRadius: radius.md,
+                            backgroundColor: active ? '#FDF5F0' : colors.surface,
+                            borderWidth: 1.5,
+                            borderColor: active ? colors.primary : colors.border,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          }}
+                        >
+                          <View style={{ flex: 1, marginRight: 8 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={{ fontSize: 13, fontWeight: '800', color: active ? colors.primary : colors.text }}>
+                                Unit {unitNum}
+                              </Text>
+                              <Text style={{ fontSize: 11, color: colors.textMuted }}>• {b.bookingNumber}</Text>
+                            </View>
+                            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                              {custName} • ₹{Math.round(totalVal).toLocaleString('en-IN')}
+                            </Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                            <Badge
+                              tone={b.status === 'confirmed' ? 'success' : 'neutral'}
+                              label={(b.status || 'pending').toUpperCase()}
+                            />
+                            {active && <Ionicons name="checkmark-circle" size={16} color={colors.primary} />}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
+              {selectedBooking && (
+                <View
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderRadius: radius.sm,
+                    padding: 10,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <View>
+                    <Text style={{ fontSize: 10, color: colors.textFaint, textTransform: 'uppercase' }}>Selected Unit</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: colors.primary, marginTop: 2 }}>
+                      Unit {(selectedBooking.unitId as any)?.unitNumber || 'Unit'}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={{ fontSize: 10, color: colors.textFaint, textTransform: 'uppercase' }}>Booking Total</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text, marginTop: 2 }}>
+                      ₹{Math.round(selectedBooking.totalValue || (selectedBooking as any).totalAmount || 0).toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+                </View>
+              )}
 
               <Input
                 label="Amount Paid (₹) *"

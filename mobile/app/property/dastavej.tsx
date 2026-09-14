@@ -156,7 +156,7 @@ export default function PropertyDastavejScreen() {
                   </View>
                   <Badge
                     tone={doc.status === 'registered' ? 'success' : 'neutral'}
-                    label={doc.status.toUpperCase()}
+                    label={(doc.status || 'generated').toUpperCase()}
                   />
                 </View>
 

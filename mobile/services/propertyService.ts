@@ -262,4 +262,10 @@ export const propertyService = {
     );
     return res.data.data;
   },
+
+  // ── Demo Data Seeding ──────────────────────────────────────────
+  seedDemoData: async () => {
+    const res = await api.post<ApiResponse<any>>('/property/seed-demo');
+    return res.data;
+  },
 };

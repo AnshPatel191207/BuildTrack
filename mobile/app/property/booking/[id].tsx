@@ -158,7 +158,7 @@ export default function PropertyBookingDetailScreen() {
                 </View>
                 <Badge
                   tone={booking.status === 'confirmed' ? 'success' : 'neutral'}
-                  label={booking.status.toUpperCase()}
+                  label={(booking.status || 'PENDING').toUpperCase()}
                 />
               </View>
 
@@ -313,7 +313,7 @@ export default function PropertyBookingDetailScreen() {
                         </Text>
                         <Badge
                           tone={milestone.status === 'paid' ? 'success' : milestone.status === 'overdue' ? 'danger' : 'neutral'}
-                          label={milestone.status.toUpperCase()}
+                          label={(milestone.status || 'PENDING').toUpperCase()}
                         />
                       </View>
 

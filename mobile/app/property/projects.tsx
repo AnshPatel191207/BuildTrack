@@ -136,7 +136,7 @@ export default function PropertyProjectsScreen() {
                     </Text>
                   </View>
                   <Badge
-                    label={p.status.toUpperCase()}
+                    label={(p.status || 'active').toUpperCase()}
                     tone={p.status === 'active' ? 'success' : 'neutral'}
                   />
                 </View>

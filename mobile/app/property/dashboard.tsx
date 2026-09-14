@@ -1,7 +1,8 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { showToast } from '@/components/ui/Toast';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { Card } from '@/components/ui/Card';
@@ -38,6 +39,21 @@ export default function PropertyDashboardScreen() {
 
   const occupancyRate = totalUnits > 0 ? Math.round(((bookedUnits + soldUnits) / totalUnits) * 100) : 0;
 
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeedDemo = async () => {
+    setSeeding(true);
+    try {
+      await propertyService.seedDemoData();
+      showToast('Dummy property ERP data seeded successfully!', 'success');
+      void refresh();
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Failed to seed demo data', 'error');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader
@@ -45,20 +61,41 @@ export default function PropertyDashboardScreen() {
         subtitle="Real estate inventory & sales cockpit"
         large
         right={
-          <Pressable
-            onPress={() => router.push('/property/import' as never)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: colors.primaryMuted,
-              paddingHorizontal: 12,
-              paddingVertical: 7,
-              borderRadius: radius.md,
-            }}
-          >
-            <Ionicons name="cloud-upload-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
-            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>Import Excel</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+            <Pressable
+              onPress={handleSeedDemo}
+              disabled={seeding}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                paddingHorizontal: 10,
+                paddingVertical: 7,
+                borderRadius: radius.md,
+              }}
+            >
+              <Ionicons name="sparkles" size={14} color={colors.primary} style={{ marginRight: 4 }} />
+              <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>
+                {seeding ? 'Seeding...' : 'Seed Data'}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/property/import' as never)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.primaryMuted,
+                paddingHorizontal: 10,
+                paddingVertical: 7,
+                borderRadius: radius.md,
+              }}
+            >
+              <Ionicons name="cloud-upload-outline" size={14} color={colors.primary} style={{ marginRight: 4 }} />
+              <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>Import</Text>
+            </Pressable>
+          </View>
         }
       />
       <OfflineBanner />
@@ -264,7 +301,7 @@ export default function PropertyDashboardScreen() {
                       <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>
                         {(b.unitId as any)?.unitNumber || 'Unit'} • {(b.customerId as any)?.name || 'Customer'}
                       </Text>
-                      <Badge label={b.status.toUpperCase()} tone={b.status === 'confirmed' ? 'success' : 'warning'} />
+                      <Badge label={(b.status || 'pending').toUpperCase()} tone={b.status === 'confirmed' ? 'success' : 'warning'} />
                     </View>
                     <Text style={{ color: colors.textFaint, fontSize: 12, marginTop: 4 }}>
                       Booking: {b.bookingNumber} • ₹{Math.round(b.totalValue).toLocaleString('en-IN')}

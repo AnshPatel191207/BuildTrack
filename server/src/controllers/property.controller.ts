@@ -11,6 +11,7 @@ import { assertProjectAccess } from '../utils/accessControl';
 import { hasPermission } from '../utils/permissions';
 import { logAudit } from '../utils/audit';
 import type { AuthUser } from '../types';
+import { seedPropertyDemoData } from '../services/propertySeed.service';
 
 type Req = Request & { validatedBody?: any; validatedQuery?: any };
 
@@ -503,3 +504,13 @@ export async function getCustomer360Profile(req: Req, res: Response) {
     timeline: customer.timeline || [],
   });
 }
+
+export async function seedDemoPropertyData(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  if (!user.companyId) {
+    throw ApiError.badRequest('User must be associated with a company to seed property data.');
+  }
+  const result = await seedPropertyDemoData(user.companyId, user._id);
+  sendCreated(res, result, 'Property ERP demo data seeded successfully!');
+}
+

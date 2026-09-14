@@ -16,9 +16,11 @@ export async function connectDatabase(): Promise<void> {
   try {
     const bookingCol = mongoose.connection.collection('bookings');
     const indexes = await bookingCol.indexes();
-    if (indexes.some((idx) => idx.name === 'bookingNo_1')) {
-      await bookingCol.dropIndex('bookingNo_1');
-      console.log('Successfully dropped legacy bookingNo_1 index from bookings collection.');
+    for (const idx of indexes) {
+      if (idx.name && (idx.name === 'bookingNo_1' || idx.name === 'bookingId_1' || (idx.key && ((idx.key as any).bookingNo || (idx.key as any).bookingId)))) {
+        await bookingCol.dropIndex(idx.name);
+        console.log(`Successfully dropped legacy ${idx.name} index from bookings collection.`);
+      }
     }
   } catch {
     // ignore if collection does not exist yet

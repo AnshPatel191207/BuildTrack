@@ -114,7 +114,7 @@ export default function Customer360Screen() {
                   }}
                 >
                   <Text style={{ fontSize: 22, fontWeight: '800', color: '#fff' }}>
-                    {customer.name.charAt(0).toUpperCase()}
+                    {(customer.name || 'C').charAt(0).toUpperCase()}
                   </Text>
                 </View>
 
@@ -294,7 +294,7 @@ export default function Customer360Screen() {
                         </View>
                         <Badge
                           tone={b.status === 'confirmed' ? 'success' : 'warning'}
-                          label={b.status.toUpperCase()}
+                          label={(b.status || 'pending').toUpperCase()}
                         />
                       </View>
 
@@ -355,7 +355,7 @@ export default function Customer360Screen() {
                             {r.receiptNumber || 'RCP-RECEIPT'}
                           </Text>
                           <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
-                            {new Date(r.paidDate || r.dueDate || new Date()).toLocaleDateString('en-IN')} • Mode: {r.method?.toUpperCase()}
+                            {new Date(r.paidDate || r.dueDate || new Date()).toLocaleDateString('en-IN')} • Mode: {(r.method || r.mode || 'PAYMENT').toUpperCase()}
                           </Text>
                         </View>
                         <Text style={{ fontSize: 16, fontWeight: '800', color: colors.success }}>
@@ -411,7 +411,7 @@ export default function Customer360Screen() {
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                             <Ionicons name="document-attach" size={18} color={colors.primary} />
                             <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
-                              {doc.title || doc.documentType?.toUpperCase()}
+                              {doc.title || (doc.documentType || 'DOCUMENT').toUpperCase()}
                             </Text>
                           </View>
                           <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
@@ -420,7 +420,7 @@ export default function Customer360Screen() {
                         </View>
                         <Badge
                           tone={doc.status === 'registered' ? 'success' : 'neutral'}
-                          label={doc.status.toUpperCase()}
+                          label={(doc.status || 'generated').toUpperCase()}
                         />
                       </View>
 

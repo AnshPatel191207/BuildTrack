@@ -9,6 +9,7 @@
     "start": "node dist/src/server.js",
     "typecheck": "tsc --noEmit",
     "seed": "tsx src/seed/seed.ts",
+    "seed:property": "tsx src/seed/seedProperty.ts",
     "test": "vitest run --reporter verbose",
     "test:watch": "vitest"
   },

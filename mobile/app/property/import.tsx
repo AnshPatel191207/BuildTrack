@@ -336,7 +336,7 @@ export default function PropertyExcelImportScreen() {
                     >
                       <View>
                         <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
-                          {r.unitNumber} ({r.category?.toUpperCase()})
+                          {r.unitNumber} ({(r.category || 'RESIDENTIAL').toUpperCase()})
                         </Text>
                         <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
                           {r.tower} • Floor {r.floor} {r.bedrooms ? `• ${r.bedrooms} BHK` : ''}

@@ -152,7 +152,7 @@ export default function PropertyBanakhatScreen() {
                   </View>
                   <Badge
                     tone={doc.status === 'registered' ? 'success' : 'neutral'}
-                    label={doc.status.toUpperCase()}
+                    label={(doc.status || 'generated').toUpperCase()}
                   />
                 </View>
 

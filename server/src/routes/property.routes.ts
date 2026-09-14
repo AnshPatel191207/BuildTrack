@@ -119,5 +119,8 @@ router.get('/reports/export', asyncHandler(reports.exportPropertyReport));
 router.get('/reports/export/excel', asyncHandler(reports.exportPropertyReportExcel));
 router.get('/reports/export/pdf', asyncHandler(reports.exportPropertyReportPdf));
 
+// ── Demo Seeding ──────────────────────────────────────────────────
+router.post('/seed-demo', asyncHandler(property.seedDemoPropertyData));
+
 export default router;
 

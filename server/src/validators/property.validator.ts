@@ -39,8 +39,8 @@ export const flatBodySchema = z.object({
   towerId: z.string().optional(),
   floorId: z.string().optional(),
   unitNumber: z.string().min(1).max(30), // e.g. "A-101"
-  unitType: z.string().min(1).max(40), // "1BHK", "2BHK", "3BHK", etc.
-  areaSqft: z.number().positive(),
+  unitType: z.string().min(1).max(40).optional(), // "1BHK", "2BHK", "3BHK", etc.
+  areaSqft: z.number().positive().optional(),
   carpetAreaSqft: z.number().nonnegative().optional(),
   builtUpAreaSqft: z.number().nonnegative().optional(),
   bedrooms: z.number().int().nonnegative().optional(),
@@ -54,7 +54,7 @@ export const flatBodySchema = z.object({
   clubhouseCharges: z.number().nonnegative().optional(),
   gstPercentage: z.number().nonnegative().max(28).optional(),
   basePrice: z.number().nonnegative().optional(),
-  totalValue: z.number().positive(),
+  totalValue: z.number().positive().optional(),
   status: z.enum(['available', 'reserved', 'booked', 'sold', 'blocked', 'cancelled']).default('available'),
   notes: z.string().max(500).optional(),
 });
@@ -65,10 +65,10 @@ export const shopBodySchema = z.object({
   floorId: z.string().optional(),
   unitNumber: z.string().min(1).max(30), // e.g. "SHOP-01"
   unitType: z.string().default('Shop'),
-  areaSqft: z.number().positive(),
+  areaSqft: z.number().positive().optional(),
   carpetAreaSqft: z.number().nonnegative().optional(),
   ratePerSqft: z.number().nonnegative().optional(),
-  totalValue: z.number().positive(),
+  totalValue: z.number().positive().optional(),
   status: z.enum(['available', 'reserved', 'booked', 'sold', 'blocked', 'cancelled']).default('available'),
   facing: z.string().max(40).optional(),
   notes: z.string().max(500).optional(),

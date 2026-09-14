@@ -126,14 +126,21 @@ export default function PropertyFlatsScreen() {
     }
     setSubmitting(true);
     try {
+      const numericBedrooms = bedrooms ? Number(bedrooms) : 2;
+      const area = Number(carpetArea || builtUpArea || 850);
+      const price = Number(basePrice || 0);
+      const parking = Number(parkingCharges || 0);
       await propertyService.createFlat(selectedProjectId, {
         unitNumber: flatNumber.trim(),
         towerId: selectedTowerId || undefined,
         floorId: formFloorId || undefined,
         bedrooms: bedrooms ? Number(bedrooms) : undefined,
-        carpetAreaSqft: carpetArea ? Number(carpetArea) : undefined,
-        builtUpAreaSqft: builtUpArea ? Number(builtUpArea) : undefined,
+        unitType: `${numericBedrooms}BHK`,
+        carpetAreaSqft: carpetArea ? Number(carpetArea) : area,
+        builtUpAreaSqft: builtUpArea ? Number(builtUpArea) : area,
+        areaSqft: area,
         basePrice: basePrice ? Number(basePrice) : undefined,
+        totalValue: price + parking,
         parkingSlot: parkingSlot.trim() || undefined,
         parkingCharges: parkingCharges ? Number(parkingCharges) : undefined,
       });

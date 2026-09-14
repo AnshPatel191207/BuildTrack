@@ -8,6 +8,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'navy';
@@ -21,7 +22,7 @@ interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
-  icon?: React.ReactNode;
+  icon?: React.ReactNode | keyof typeof Ionicons.glyphMap;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
 }
@@ -84,7 +85,16 @@ export function Button({
         <ActivityIndicator color={palette.fg} size="small" />
       ) : (
         <View style={styles.row}>
-          {icon}
+          {typeof icon === 'string' ? (
+            <Ionicons
+              name={icon as any}
+              size={size === 'sm' ? 14 : size === 'lg' ? 20 : 16}
+              color={palette.fg}
+              style={{ marginRight: 6 }}
+            />
+          ) : (
+            icon
+          )}
           <Text
             style={{
               color: palette.fg,

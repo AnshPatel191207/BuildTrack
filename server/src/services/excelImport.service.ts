@@ -141,15 +141,18 @@ export async function parseAndPreviewExcel(
   const existingProjects = await Project.find({ companyId }).select('_id name projectCode').lean();
   const projectMap = new Map<string, any>();
   for (const p of existingProjects) {
-    projectMap.set(p.name.trim().toLowerCase(), p);
-    projectMap.set(p.projectCode.trim().toLowerCase(), p);
+    if (p.name) projectMap.set(String(p.name).trim().toLowerCase(), p);
+    if (p.projectCode) projectMap.set(String(p.projectCode).trim().toLowerCase(), p);
+    projectMap.set(String(p._id), p);
   }
 
   // Pre-fetch all unit numbers in this company to detect duplicate units
   const existingUnits = await Unit.find({ companyId }).select('projectId unitNumber').lean();
   const existingUnitSet = new Set<string>();
   for (const u of existingUnits) {
-    existingUnitSet.add(`${String(u.projectId)}::${u.unitNumber.trim().toUpperCase()}`);
+    if (u.unitNumber) {
+      existingUnitSet.add(`${String(u.projectId)}::${String(u.unitNumber).trim().toUpperCase()}`);
+    }
   }
 
   const internalSeenUnits = new Set<string>();
@@ -282,6 +285,7 @@ export async function executeExcelBulkImport(
   companyId: unknown,
   userId: unknown,
   validRows: ExcelRowParsed[],
+  overrideProjectId?: string,
 ): Promise<{
   insertedUnits: number;
   towersCreated: number;
@@ -293,7 +297,15 @@ export async function executeExcelBulkImport(
 
   // Pre-load projects
   const projects = await Project.find({ companyId }).lean();
-  const projectMap = new Map<string, any>(projects.map((p: any) => [p.name.trim().toLowerCase(), p]));
+  const projectMap = new Map<string, any>();
+  for (const p of projects) {
+    if (p.name) projectMap.set(String(p.name).trim().toLowerCase(), p);
+    if (p.projectCode) projectMap.set(String(p.projectCode).trim().toLowerCase(), p);
+    projectMap.set(String(p._id), p);
+  }
+  const defaultProject = overrideProjectId
+    ? await Project.findOne({ _id: overrideProjectId, companyId }).lean()
+    : projects[0];
 
   // Cache towers and floors to prevent repeated lookups
   const towerCache = new Map<string, any>(); // key: `${projectId}::${towerName}`
@@ -309,23 +321,28 @@ export async function executeExcelBulkImport(
   }).lean();
 
   for (const n of existingNodes) {
+    const nodeName = (n.name ? String(n.name) : '').trim().toLowerCase();
+    if (!nodeName) continue;
     if (n.nodeType === 'tower' || n.nodeType === 'block') {
-      towerCache.set(`${String(n.projectId)}::${n.name.trim().toLowerCase()}`, n);
+      towerCache.set(`${String(n.projectId)}::${nodeName}`, n);
     } else if (n.nodeType === 'floor') {
-      floorCache.set(`${String(n.parentId)}::${n.name.trim().toLowerCase()}`, n);
+      floorCache.set(`${String(n.parentId)}::${nodeName}`, n);
     }
   }
 
   const unitsToInsert: any[] = [];
 
   for (const row of validRows) {
-    const project = projectMap.get(row.projectName.trim().toLowerCase());
+    const rowProj = (row.projectName ? String(row.projectName) : '').trim().toLowerCase();
+    const project = projectMap.get(rowProj) || defaultProject;
     if (!project) continue;
 
     const projectId = project._id;
+    const rawTower = (row.towerName ? String(row.towerName) : 'Tower A').trim();
+    const rawFloor = (row.floorName ? String(row.floorName) : '1st Floor').trim();
 
     // 1. Resolve or Create Tower
-    const towerKey = `${String(projectId)}::${row.towerName.trim().toLowerCase()}`;
+    const towerKey = `${String(projectId)}::${rawTower.toLowerCase()}`;
     let tower = towerCache.get(towerKey);
     if (!tower) {
       tower = await ProjectNode.create({
@@ -333,7 +350,7 @@ export async function executeExcelBulkImport(
         projectId,
         parentId: null,
         nodeType: 'tower',
-        name: row.towerName.trim(),
+        name: rawTower,
         order: 0,
         createdBy: userId,
       });
@@ -342,7 +359,7 @@ export async function executeExcelBulkImport(
     }
 
     // 2. Resolve or Create Floor
-    const floorKey = `${String(tower._id)}::${row.floorName.trim().toLowerCase()}`;
+    const floorKey = `${String(tower._id)}::${rawFloor.toLowerCase()}`;
     let floor = floorCache.get(floorKey);
     if (!floor) {
       floor = await ProjectNode.create({
@@ -350,7 +367,7 @@ export async function executeExcelBulkImport(
         projectId,
         parentId: tower._id,
         nodeType: 'floor',
-        name: row.floorName.trim(),
+        name: rawFloor,
         order: 0,
         createdBy: userId,
       });

@@ -404,7 +404,7 @@ export async function exportPropertyReportExcel(req: Req, res: Response) {
   const user = req.user! as AuthUser;
   const companyId = user.companyId;
   const q = req.query as any;
-  const reportType = q.type || 'inventory';
+  const reportType = q.reportType || q.type || 'inventory';
 
   // Fetch report data
   const reportReq = { ...req, user, query: q } as any;
@@ -446,7 +446,7 @@ export async function exportPropertyReportExcel(req: Req, res: Response) {
 export async function exportPropertyReportPdf(req: Req, res: Response) {
   const user = req.user! as AuthUser;
   const q = req.query as any;
-  const reportType = q.type || 'inventory';
+  const reportType = q.reportType || q.type || 'inventory';
 
   // Fetch report data
   let reportData: any = null;
@@ -528,3 +528,14 @@ export async function exportPropertyReportPdf(req: Req, res: Response) {
 
   doc.end();
 }
+
+// ── Consolidated Report Export Dispatcher ─────────────────────────
+
+export async function exportPropertyReport(req: Req, res: Response) {
+  const format = ((req.query.format as string) || 'pdf').toLowerCase();
+  if (format === 'excel' || format === 'xlsx') {
+    return exportPropertyReportExcel(req, res);
+  }
+  return exportPropertyReportPdf(req, res);
+}
+

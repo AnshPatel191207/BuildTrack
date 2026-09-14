@@ -84,6 +84,9 @@ export async function createPayment(req: Req, res: Response) {
     }
     if (booking.projectId) await assertProjectAccess(user, String(booking.projectId));
     body.projectId = body.projectId ?? booking.projectId;
+    if (!body.customerId && booking.customerId) {
+      body.customerId = booking.customerId;
+    }
   } else if (body.projectId) {
     await assertProjectAccess(user, body.projectId);
   }
@@ -97,8 +100,10 @@ export async function createPayment(req: Req, res: Response) {
     companyId: user.companyId,
     projectId: body.projectId || null,
     bookingId: body.bookingId || null,
+    unitId: booking?.unitId || null,
+    customerId: customer._id,
     paymentNumber: await nextPaymentNumber(user.companyId),
-    status: 'paid',
+    status: paidNow ? 'paid' : (body.status || 'pending'),
     paidDate: paidNow ? utcDay(body.paidDate) : null,
     recordedBy: user._id,
   });

@@ -1,4 +1,6 @@
 import type { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import QRCode from 'qrcode';
 import { ApiError, sendCreated, sendSuccess } from '../utils/apiResponse';
 import { Payment, nextReceiptNumber } from '../models/Payment';
@@ -383,3 +385,138 @@ export async function createDocumentTemplate(req: Req, res: Response) {
 
   sendCreated(res, template, 'Template created.');
 }
+
+// ── Property Document Queries & PDF Streaming ───────────────────
+
+export async function listPropertyDocuments(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  const q = req.query as any;
+  const filter: Record<string, unknown> = { companyId: user.companyId };
+  if (q.documentType) filter.documentType = q.documentType;
+  if (q.bookingId) filter.bookingId = q.bookingId;
+  if (q.customerId) filter.customerId = q.customerId;
+  if (q.projectId) filter.projectId = q.projectId;
+
+  const docs = await PropertyDocument.find(filter)
+    .populate('customerId', 'name phone email')
+    .populate('projectId', 'name')
+    .populate('bookingId', 'bookingNumber status')
+    .populate('unitId', 'unitNumber unitType totalValue')
+    .sort({ createdAt: -1 });
+
+  sendSuccess(res, docs);
+}
+
+export async function getPropertyDocument(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  const doc = await PropertyDocument.findOne({ _id: req.params.id, companyId: user.companyId })
+    .populate('customerId')
+    .populate('projectId')
+    .populate('bookingId')
+    .populate('unitId');
+  if (!doc) throw ApiError.notFound('Document not found.');
+  sendSuccess(res, doc);
+}
+
+export async function streamPaymentReceiptPdf(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  const paymentId = req.params.paymentId;
+  const payment = await Payment.findOne({ _id: paymentId, companyId: user.companyId })
+    .populate('customerId')
+    .populate('projectId')
+    .populate('bookingId')
+    .populate('unitId');
+  if (!payment) throw ApiError.notFound('Payment record not found.');
+
+  const company = await Company.findById(user.companyId);
+  const customer = payment.customerId as any;
+  const project = payment.projectId as any;
+  const unit = payment.unitId as any;
+  const booking = payment.bookingId as any;
+
+  if (!payment.receiptNumber) {
+    payment.receiptNumber = await nextReceiptNumber(user.companyId);
+    await payment.save();
+  }
+
+  let totalPaidTillNow = payment.amount;
+  let totalUnitValue = unit?.totalValue || booking?.totalValue || 0;
+  if (booking) {
+    const paidAgg = await Payment.aggregate([
+      { $match: { bookingId: booking._id, status: 'paid' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]);
+    totalPaidTillNow = paidAgg[0]?.total ?? payment.amount;
+  }
+
+  const { buffer, relativeUrl } = await generateReceiptPdf({
+    receiptNumber: payment.receiptNumber,
+    paymentDate: payment.paidDate || payment.createdAt || new Date(),
+    paymentAmount: payment.amount,
+    paymentMode: payment.method || 'Bank Transfer',
+    transactionId: payment.reference || undefined,
+    companyName: company?.name || 'BuildTrack Real Estate',
+    companyAddress: company?.address || undefined,
+    companyPhone: company?.phone || undefined,
+    companyEmail: company?.email || undefined,
+    companyGstin: company?.gstin || undefined,
+    customerName: customer?.name || 'Valued Customer',
+    customerPhone: customer?.phone || 'N/A',
+    customerEmail: customer?.email || undefined,
+    customerAddress: customer?.address || undefined,
+    customerPan: customer?.pan || undefined,
+    projectName: project?.name || 'Project',
+    unitNumber: unit?.unitNumber || 'Unit',
+    towerName: unit?.towerName || undefined,
+    floorName: unit?.floorName || undefined,
+    unitType: unit?.unitType || undefined,
+    totalUnitValue,
+    totalPaidTillNow,
+    remainingBalance: Math.max(0, totalUnitValue - totalPaidTillNow),
+  });
+
+  if (payment.receiptPdfUrl !== relativeUrl) {
+    payment.receiptPdfUrl = relativeUrl;
+    await payment.save();
+  }
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="Receipt_${payment.receiptNumber}.pdf"`);
+  res.send(buffer);
+}
+
+export async function streamPropertyDocumentPdf(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  const docId = req.params.docId || req.params.id;
+  const doc = await PropertyDocument.findOne({ _id: docId, companyId: user.companyId });
+  if (!doc) throw ApiError.notFound('Property document not found.');
+
+  // Check if file exists on disk
+  if (doc.pdfUrl) {
+    const filePath = path.resolve(process.cwd(), doc.pdfUrl.replace(/^\//, ''));
+    if (fs.existsSync(filePath)) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${doc.documentNumber}.pdf"`);
+      fs.createReadStream(filePath).pipe(res);
+      return;
+    }
+  }
+
+  // Regenerate PDF
+  const company = await Company.findById(user.companyId);
+  const project = await Project.findById(doc.projectId);
+  const { buffer } = await generateLegalDocumentPdf({
+    title: doc.documentType === 'banakhat' ? 'Agreement to Sale (Banakhat)' : 'Deed of Conveyance (Dastavej)',
+    documentNumber: doc.documentNumber,
+    companyName: company?.name || 'Vendor',
+    projectName: project?.name || 'Project',
+    reraNumber: project?.reraNumber || undefined,
+    bodyContent: doc.renderedContent || '',
+    todayDate: doc.createdAt.toLocaleDateString('en-IN'),
+  });
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${doc.documentNumber}.pdf"`);
+  res.send(buffer);
+}
+

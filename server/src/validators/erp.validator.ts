@@ -207,11 +207,20 @@ export const bookingBodySchema = z
     projectId: objectId,
     unitId: objectId,
     customerId: objectId,
-    bookingDate: isoDate,
-    bookingAmount: positiveMoney,
+    bookingDate: isoDate.optional(),
+    bookingAmount: money.optional(),
+    totalAmount: money.optional(),
+    tokenAmount: money.optional(),
+    discountAmount: money.optional(),
+    discountReason: optionalText(300),
     salesManagerId: objectId.nullable().optional(),
     notes: optionalText(1000),
   })
+  .transform((d) => ({
+    ...d,
+    bookingDate: d.bookingDate || new Date().toISOString().slice(0, 10),
+    bookingAmount: d.bookingAmount !== undefined ? d.bookingAmount : (d.tokenAmount ?? 0),
+  }))
   .refine((d) => !d.salesManagerId || d.salesManagerId !== '', {
     message: 'Invalid sales manager',
     path: ['salesManagerId'],
@@ -224,8 +233,9 @@ export const bookingActionSchema = z.object({
 });
 
 export const bookingScheduleSchema = z.object({
-  installments: z.coerce.number().int().min(1, 'At least one installment').max(60),
-  startDate: isoDate,
+  installments: z.coerce.number().int().min(1, 'At least one installment').max(60).optional(),
+  milestones: z.array(z.any()).optional(),
+  startDate: isoDate.optional(),
   frequencyMonths: z.coerce.number().int().min(1).max(24).default(1),
 });
 
@@ -238,18 +248,55 @@ export const bookingQuerySchema = z.object({
 });
 
 // ── Payments ─────────────────────────────────────────────────────
-export const paymentBodySchema = z.object({
-  projectId: objectId.nullable().optional(),
-  bookingId: objectId.nullable().optional(),
-  customerId: objectId,
-  amount: positiveMoney,
-  paymentType: z.enum(['booking_amount', 'installment', 'milestone', 'final']),
-  method: z.enum(['cash', 'upi', 'bank_transfer', 'card', 'cheque', 'loan', 'other']).default('bank_transfer'),
-  dueDate: nullableIsoDate,
-  paidDate: nullableIsoDate,
-  reference: optionalText(80),
-  notes: optionalText(500),
-});
+export const paymentBodySchema = z
+  .object({
+    projectId: objectId.nullable().optional(),
+    bookingId: objectId.nullable().optional(),
+    customerId: objectId.nullable().optional(),
+    amount: positiveMoney,
+    paymentType: z
+      .enum(['booking_amount', 'installment', 'milestone', 'final'])
+      .optional()
+      .default('installment'),
+    method: z
+      .enum(['cash', 'upi', 'bank_transfer', 'card', 'cheque', 'loan', 'other'])
+      .optional(),
+    mode: z.string().optional(),
+    dueDate: nullableIsoDate,
+    paidDate: nullableIsoDate,
+    paymentDate: nullableIsoDate,
+    reference: optionalText(80),
+    transactionId: optionalText(80),
+    chequeNumber: optionalText(80),
+    bankName: optionalText(80),
+    notes: optionalText(500),
+  })
+  .transform((d) => {
+    let method = d.method;
+    if (!method && d.mode) {
+      const m = d.mode.toLowerCase().trim();
+      if (['cash', 'upi', 'bank_transfer', 'card', 'cheque', 'loan'].includes(m)) {
+        method = m as any;
+      } else if (['neft', 'rtgs', 'netbanking', 'online', 'bank transfer'].includes(m)) {
+        method = 'bank_transfer';
+      } else {
+        method = 'other';
+      }
+    }
+    const paidDate = d.paidDate || d.paymentDate || new Date().toISOString().slice(0, 10);
+    const reference =
+      d.reference ||
+      d.transactionId ||
+      d.chequeNumber ||
+      (d.bankName ? `Bank: ${d.bankName}` : undefined);
+    return {
+      ...d,
+      method: method || 'bank_transfer',
+      paidDate,
+      reference,
+      paymentType: d.paymentType || 'installment',
+    };
+  });
 
 export const paymentUpdateSchema = z.object({
   amount: positiveMoney.optional(),

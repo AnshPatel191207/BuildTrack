@@ -12,11 +12,18 @@ export const protect = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
+    let token = '';
     const header = req.headers.authorization;
-    if (!header || !header.startsWith('Bearer ')) {
+    if (header && header.startsWith('Bearer ')) {
+      token = header.slice(7).trim();
+    } else if (req.query?.token && typeof req.query.token === 'string') {
+      token = req.query.token.trim();
+    }
+
+    if (!token) {
       throw ApiError.unauthorized('Please sign in to continue.');
     }
-    const payload = verifyAccessToken(header.slice(7).trim());
+    const payload = verifyAccessToken(token);
     const user = await User.findById(payload.sub);
     if (!user || !user.isActive) {
       throw ApiError.unauthorized('Your account is no longer active.');

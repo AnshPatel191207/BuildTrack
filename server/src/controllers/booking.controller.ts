@@ -89,16 +89,27 @@ export async function createBooking(req: Req, res: Response) {
   }
   const customer = await Customer.findOne({ _id: body.customerId, companyId: user.companyId });
   if (!customer) throw ApiError.badRequest('Customer not found.');
-  if (body.bookingAmount > unit.totalValue) {
+
+  if (unit.totalValue === 0 && body.totalAmount) {
+    unit.totalValue = Number(body.totalAmount);
+    await unit.save();
+  }
+
+  const effectiveTotalValue = unit.totalValue || Number(body.totalAmount) || 0;
+  const bookingAmount = body.bookingAmount !== undefined ? Number(body.bookingAmount) : (Number(body.tokenAmount) || 0);
+
+  if (effectiveTotalValue > 0 && bookingAmount > effectiveTotalValue) {
     throw ApiError.badRequest('Booking amount cannot exceed the unit value.');
   }
 
   const bookingNumber = await nextBookingNumber(user.companyId);
   const booking = await Booking.create({
     ...body,
+    bookingDate: body.bookingDate ? new Date(body.bookingDate) : new Date(),
+    bookingAmount,
     companyId: user.companyId,
     bookingNumber,
-    totalValue: unit.totalValue,
+    totalValue: effectiveTotalValue,
     salesManagerId: body.salesManagerId || user._id,
     createdBy: user._id,
     status: 'pending',
@@ -297,7 +308,7 @@ export async function generateSchedule(req: Req, res: Response) {
     throw ApiError.badRequest('Cannot schedule payments for a cancelled booking.');
   }
 
-  const { installments, startDate, frequencyMonths } = req.validatedBody;
+  const { installments = 1, startDate = new Date().toISOString().slice(0, 10), frequencyMonths = 1, milestones } = req.validatedBody ?? req.body ?? {};
   await Payment.deleteMany({ bookingId: booking._id, status: 'pending' });
 
   // Allocate receipt numbers locally — countDocuments doesn't see the docs
@@ -307,6 +318,30 @@ export async function generateSchedule(req: Req, res: Response) {
     seq += 1;
     return `PAY-${String(seq).padStart(4, '0')}`;
   };
+
+  if (Array.isArray(milestones) && milestones.length > 0) {
+    const milestoneDocs: any[] = [];
+    for (const m of milestones) {
+      milestoneDocs.push({
+        companyId: booking.companyId,
+        projectId: booking.projectId,
+        bookingId: booking._id,
+        customerId: booking.customerId,
+        unitId: booking.unitId,
+        paymentNumber: takePaymentNumber(),
+        amount: Number(m.amount || 0),
+        paymentType: 'milestone',
+        method: 'bank_transfer',
+        dueDate: m.dueDate ? utcDay(m.dueDate) : utcDay(new Date()),
+        notes: m.name || m.milestoneName || m.description || undefined,
+        status: 'pending',
+        recordedBy: user._id,
+      });
+    }
+    if (milestoneDocs.length > 0) await Payment.insertMany(milestoneDocs);
+    sendCreated(res, { created: milestoneDocs.length }, `Payment schedule with ${milestoneDocs.length} milestones generated.`);
+    return;
+  }
 
   const paidAgg = await Payment.aggregate([
     { $match: { bookingId: booking._id, status: 'paid' } },

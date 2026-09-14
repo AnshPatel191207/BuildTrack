@@ -382,6 +382,54 @@ describe.skipIf(skip)('Property ERP End-to-End Test Suite', () => {
       expect(reportRes.body.data.totals.totalUnits).toBeGreaterThanOrEqual(1);
       expect(reportRes.body.data.rows.length).toBeGreaterThanOrEqual(1);
     });
+
+    it('exports property reports to PDF and Excel via /api/property/reports/export', async () => {
+      const pdfRes = await request(app)
+        .get(`/api/property/reports/export?projectId=${projectId}&reportType=inventory&format=pdf`)
+        .set(authHeader(ownerToken));
+      expect(pdfRes.status).toBe(200);
+      expect(pdfRes.header['content-type']).toContain('application/pdf');
+
+      const excelRes = await request(app)
+        .get(`/api/property/reports/export?projectId=${projectId}&reportType=inventory&format=excel`)
+        .set(authHeader(ownerToken));
+      expect(excelRes.status).toBe(200);
+      expect(excelRes.header['content-type']).toContain('spreadsheetml.sheet');
+    });
+
+    it('lists property customers, bookings, payments, and documents via /api/property endpoints', async () => {
+      const custRes = await request(app)
+        .get('/api/property/customers')
+        .set(authHeader(ownerToken));
+      expect(custRes.status).toBe(200);
+      expect(custRes.body.data.length).toBeGreaterThanOrEqual(1);
+
+      const bookRes = await request(app)
+        .get('/api/property/bookings')
+        .set(authHeader(ownerToken));
+      expect(bookRes.status).toBe(200);
+      expect(bookRes.body.data.length).toBeGreaterThanOrEqual(1);
+
+      const payRes = await request(app)
+        .get('/api/property/payments')
+        .set(authHeader(ownerToken));
+      expect(payRes.status).toBe(200);
+      expect(payRes.body.data.length).toBeGreaterThanOrEqual(1);
+
+      const docRes = await request(app)
+        .get('/api/property/documents')
+        .set(authHeader(ownerToken));
+      expect(docRes.status).toBe(200);
+      expect(docRes.body.data.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('streams PDF receipt via /api/property/documents/receipts/:paymentId/pdf', async () => {
+      const receiptPdfRes = await request(app)
+        .get(`/api/property/documents/receipts/${paymentId}/pdf`)
+        .set(authHeader(ownerToken));
+      expect(receiptPdfRes.status).toBe(200);
+      expect(receiptPdfRes.header['content-type']).toContain('application/pdf');
+    });
   });
 
   // ── 7. Excel Bulk Import ───────────────────────────────────────────

@@ -49,6 +49,9 @@ const ACCESS_TOKEN_KEY = 'bt.accessToken';
 const REFRESH_TOKEN_KEY = 'bt.refreshToken';
 
 let accessToken: string | null = null;
+export function getAccessToken(): string | null {
+  return accessToken;
+}
 
 export async function loadStoredTokens(): Promise<{ access: string | null; refresh: string | null }> {
   try {

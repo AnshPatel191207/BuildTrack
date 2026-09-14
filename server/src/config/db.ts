@@ -11,6 +11,18 @@ export async function connectDatabase(): Promise<void> {
     serverSelectionTimeoutMS: 10_000,
   });
   connected = true;
+
+  // Clean up legacy/orphan indexes that conflict with bookings
+  try {
+    const bookingCol = mongoose.connection.collection('bookings');
+    const indexes = await bookingCol.indexes();
+    if (indexes.some((idx) => idx.name === 'bookingNo_1')) {
+      await bookingCol.dropIndex('bookingNo_1');
+      console.log('Successfully dropped legacy bookingNo_1 index from bookings collection.');
+    }
+  } catch {
+    // ignore if collection does not exist yet
+  }
 }
 
 export async function disconnectDatabase(): Promise<void> {

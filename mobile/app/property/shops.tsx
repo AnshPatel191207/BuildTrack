@@ -116,13 +116,18 @@ export default function PropertyShopsScreen() {
     }
     setSubmitting(true);
     try {
+      const area = Number(carpetArea || builtUpArea || 250);
+      const price = Number(basePrice || 0);
       await propertyService.createShop(selectedProjectId, {
         unitNumber: shopNumber.trim(),
         towerId: selectedTowerId || undefined,
         floorId: formFloorId || undefined,
-        carpetAreaSqft: carpetArea ? Number(carpetArea) : undefined,
-        builtUpAreaSqft: builtUpArea ? Number(builtUpArea) : undefined,
+        unitType: 'Shop',
+        carpetAreaSqft: carpetArea ? Number(carpetArea) : area,
+        builtUpAreaSqft: builtUpArea ? Number(builtUpArea) : area,
+        areaSqft: area,
         basePrice: basePrice ? Number(basePrice) : undefined,
+        totalValue: price,
       });
       showToast('Commercial unit created successfully', 'success');
       setModalOpen(false);

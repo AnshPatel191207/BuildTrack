@@ -1,4 +1,4 @@
-import { api, cachedGet, API_URL } from './api';
+import { api, cachedGet, API_URL, getAccessToken } from './api';
 import type {
   ApiResponse,
   PropertyProject,
@@ -194,11 +194,15 @@ export const propertyService = {
   },
 
   getReceiptPdfUrl: (paymentId: string) => {
-    return `${API_URL}/property/documents/receipts/${paymentId}/pdf`;
+    const token = getAccessToken();
+    const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+    return `${API_URL}/property/documents/receipts/${paymentId}/pdf${qs}`;
   },
 
   getDocumentPdfUrl: (docId: string) => {
-    return `${API_URL}/property/documents/${docId}/pdf`;
+    const token = getAccessToken();
+    const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+    return `${API_URL}/property/documents/${docId}/pdf${qs}`;
   },
 
   // ── Document Generation (Banakhat, Dastavej) ───────────────────
@@ -232,7 +236,9 @@ export const propertyService = {
     cachedGet<PropertyDashboardStats>('/property/dashboard', projectId ? { projectId } : {}),
 
   getExportReportUrl: (params: { projectId?: string; reportType: string; format: 'excel' | 'pdf' }) => {
-    const qs = new URLSearchParams(cleanParams(params) as Record<string, string>).toString();
+    const token = getAccessToken();
+    const clean = cleanParams({ ...params, token });
+    const qs = new URLSearchParams(clean as Record<string, string>).toString();
     return `${API_URL}/property/reports/export?${qs}`;
   },
 

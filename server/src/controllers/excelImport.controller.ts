@@ -44,12 +44,12 @@ export async function executeExcelImport(req: Req, res: Response) {
     throw ApiError.forbidden('You do not have permission to import inventory.');
   }
 
-  const { validRows } = req.body;
+  const { validRows, projectId } = req.body;
   if (!validRows || !Array.isArray(validRows) || validRows.length === 0) {
     throw ApiError.badRequest('No valid rows provided for import.');
   }
 
-  const result = await executeExcelBulkImport(user.companyId, user._id, validRows);
+  const result = await executeExcelBulkImport(user.companyId, user._id, validRows, projectId);
 
   await logAudit(req, {
     action: 'bulk_import',

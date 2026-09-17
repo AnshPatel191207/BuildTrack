@@ -28,6 +28,66 @@ export interface ProjectDocument extends mongoose.HydratedDocument<any> {
   totalTowers?: number;
   totalUnits?: number;
   amenities?: string[];
+  // Dynamic Branding & ERP configuration
+  branding?: {
+    logoUrl?: string | null;
+    logoDarkUrl?: string | null;
+    shortName?: string | null;
+    developerName?: string | null;
+    companyName?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    website?: string | null;
+    officeAddress?: string | null;
+    siteAddress?: string | null;
+    gstNumber?: string | null;
+    reraNumber?: string | null;
+    panNumber?: string | null;
+  };
+  theme?: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    success: string;
+    warning: string;
+    danger: string;
+    info: string;
+  };
+  receiptConfig?: {
+    showLogo: boolean;
+    showQr: boolean;
+    showGst: boolean;
+    showRera: boolean;
+    showCustomerAddress: boolean;
+    showBankDetails: boolean;
+    watermarkText?: string | null;
+    enableDigitalSign: boolean;
+    termsAndConditions: string[];
+    authorizedSignatoryTitle?: string | null;
+    tagline?: string | null;
+    jurisdiction?: string | null;
+  };
+  legalDocConfig?: {
+    partnershipFirmName?: string | null;
+    managingPartners?: string[];
+    subRegistrarOffice?: string | null;
+    tpScheme?: string | null;
+    surveyNumbers?: string | null;
+    finalPlotNumbers?: string | null;
+    citySurveyNumbers?: string | null;
+    projectTagline?: string | null;
+    jurisdiction?: string | null;
+  };
+  bookingRules?: {
+    minTokenAmount: number;
+    tokenValidityDays: number;
+    cancellationPenaltyPct: number;
+  };
+  paymentRules?: {
+    defaultGstRate: number;
+    overdueInterestPctPerAnnum: number;
+    gracePeriodDays: number;
+  };
 }
 
 const projectTypes = [
@@ -78,6 +138,80 @@ const projectSchema = new Schema<ProjectDocument>(
     totalTowers: { type: Number, default: 0, min: 0 },
     totalUnits: { type: Number, default: 0, min: 0 },
     amenities: { type: [String], default: [] },
+    // Dynamic Branding & ERP configuration
+    branding: {
+      logoUrl: { type: String, default: null },
+      logoDarkUrl: { type: String, default: null },
+      shortName: { type: String, trim: true, default: null },
+      developerName: { type: String, trim: true, default: null },
+      companyName: { type: String, trim: true, default: null },
+      phone: { type: String, trim: true, default: null },
+      email: { type: String, trim: true, lowercase: true, default: null },
+      website: { type: String, trim: true, default: null },
+      officeAddress: { type: String, trim: true, default: null },
+      siteAddress: { type: String, trim: true, default: null },
+      gstNumber: { type: String, trim: true, uppercase: true, default: null },
+      reraNumber: { type: String, trim: true, default: null },
+      panNumber: { type: String, trim: true, uppercase: true, default: null },
+    },
+    theme: {
+      primary: { type: String, default: '#E8590C' },
+      secondary: { type: String, default: '#17263B' },
+      accent: { type: String, default: '#F59E0B' },
+      success: { type: String, default: '#10B981' },
+      warning: { type: String, default: '#D97706' },
+      danger: { type: String, default: '#DC2626' },
+      info: { type: String, default: '#2563EB' },
+    },
+    receiptConfig: {
+      showLogo: { type: Boolean, default: true },
+      showQr: { type: Boolean, default: true },
+      showGst: { type: Boolean, default: true },
+      showRera: { type: Boolean, default: true },
+      showCustomerAddress: { type: Boolean, default: true },
+      showBankDetails: { type: Boolean, default: true },
+      watermarkText: { type: String, default: null },
+      enableDigitalSign: { type: Boolean, default: true },
+      termsAndConditions: {
+        type: [String],
+        default: [
+          'Subject to realization of Cheque / RTGS payment.',
+          'Interest @ 12% p.a. applicable for delayed installments.',
+          'All disputes subject to local jurisdiction.',
+        ],
+      },
+      authorizedSignatoryTitle: { type: String, default: null },
+      tagline: { type: String, default: '2 BHK PODIUM HOMES' },
+      jurisdiction: { type: String, default: 'Ahmedabad Jurisdiction' },
+    },
+    legalDocConfig: {
+      partnershipFirmName: { type: String, default: 'રૂદ્ર ડેવલોપર્સ એ નામની ભાગીદારી પેઢી' },
+      managingPartners: {
+        type: [String],
+        default: [
+          '૧. પ્રશાંતકુમાર હસમુખભાઈ લીંબાણી',
+          '૨. જેનિલ વિપુલકુમાર શીંગાળા',
+          '૩. ધવલ કિશોરભાઈ ડોબરીયા',
+        ],
+      },
+      subRegistrarOffice: { type: String, default: 'ગાંધીનગર સબ-ડીસ્ટ્રીકટ ગાંધીનગર (ઝોન-૨)' },
+      tpScheme: { type: String, default: '૪૦૯/અ (ખોરજ-ત્રાગડ)' },
+      surveyNumbers: { type: String, default: '૩૫૩/૩, ૩૫૬/૨' },
+      finalPlotNumbers: { type: String, default: '૮૨, ૮૭' },
+      citySurveyNumbers: { type: String, default: 'NA99, NA353/3, NA356/2P1' },
+      projectTagline: { type: String, default: '2 BHK PODIUM HOMES' },
+      jurisdiction: { type: String, default: 'Ahmedabad Jurisdiction' },
+    },
+    bookingRules: {
+      minTokenAmount: { type: Number, default: 100000 },
+      tokenValidityDays: { type: Number, default: 7 },
+      cancellationPenaltyPct: { type: Number, default: 10 },
+    },
+    paymentRules: {
+      defaultGstRate: { type: Number, default: 5 },
+      overdueInterestPctPerAnnum: { type: Number, default: 12 },
+      gracePeriodDays: { type: Number, default: 15 },
+    },
   },
   { timestamps: true },
 );

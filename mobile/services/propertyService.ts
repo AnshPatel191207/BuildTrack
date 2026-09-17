@@ -268,4 +268,60 @@ export const propertyService = {
     const res = await api.post<ApiResponse<any>>('/property/seed-demo');
     return res.data;
   },
+
+  // ── Project Configuration & Dynamic Branding ───────────────────
+  getProjectConfiguration: async (projectId: string) => {
+    const res = await api.get<ApiResponse<{ project: any }>>(`/property/projects/${projectId}/configuration`);
+    return res.data.data.project;
+  },
+
+  updateProjectBranding: async (projectId: string, branding: any) => {
+    const res = await api.put<ApiResponse<{ branding: any }>>(`/property/projects/${projectId}/branding`, branding);
+    return res.data.data;
+  },
+
+  uploadProjectLogo: async (projectId: string, formData: FormData) => {
+    const res = await api.post<ApiResponse<{ branding: any }>>(`/property/projects/${projectId}/logo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data.data;
+  },
+
+  deleteProjectLogo: async (projectId: string, isDark = false) => {
+    const res = await api.delete<ApiResponse<{ branding: any }>>(`/property/projects/${projectId}/logo?mode=${isDark ? 'dark' : 'light'}`);
+    return res.data.data;
+  },
+
+  updateProjectTheme: async (projectId: string, theme: any) => {
+    const res = await api.put<ApiResponse<{ theme: any }>>(`/property/projects/${projectId}/theme`, theme);
+    return res.data.data;
+  },
+
+  updateReceiptConfig: async (projectId: string, receiptConfig: any) => {
+    const res = await api.put<ApiResponse<{ receiptConfig: any }>>(`/property/projects/${projectId}/receipt-config`, receiptConfig);
+    return res.data.data;
+  },
+
+  updateLegalDocConfig: async (projectId: string, legalDocConfig: any) => {
+    const res = await api.put<ApiResponse<{ legalDocConfig: any }>>(
+      `/property/projects/${projectId}/legal-doc-config`,
+      legalDocConfig,
+    );
+    return res.data.data;
+  },
+
+  updateProjectRules: async (projectId: string, rules: any) => {
+    const res = await api.put<ApiResponse<any>>(`/property/projects/${projectId}/rules`, rules);
+    return res.data.data;
+  },
+
+  previewReceipt: async (projectId: string, overrides?: any) => {
+    const res = await api.post<ApiResponse<{ previewPdfUrl: string }>>(`/property/projects/${projectId}/receipt-preview`, overrides || {});
+    return res.data.data;
+  },
+
+  listVariables: async () => {
+    const res = await api.get<ApiResponse<{ variables: Array<{ key: string; label: string; category: string; example: string }> }>>('/property/documents/variables');
+    return res.data.data.variables;
+  },
 };

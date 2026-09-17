@@ -61,22 +61,115 @@ export function numberToWordsINR(num: number): string {
 }
 
 export interface TemplateContext {
-  [key: string]: string | number | undefined | null;
+  [key: string]: any;
 }
+
+export interface TemplateClause {
+  id: string;
+  clauseNumber?: string | null;
+  title: string;
+  content: string;
+  isMandatory?: boolean;
+  order?: number;
+  conditionVariable?: string | null;
+}
+
+export const VARIABLE_REGISTRY = [
+  { key: 'project_name', label: 'Project Name', category: 'Project', example: 'Santora' },
+  { key: 'project_short_name', label: 'Project Short Name', category: 'Project', example: 'Santora' },
+  { key: 'project_logo', label: 'Project Logo URL', category: 'Project', example: '/uploads/branding/logo.png' },
+  { key: 'developer_name', label: 'Developer / Builder Name', category: 'Project', example: 'Santora Infracon LLP' },
+  { key: 'company_name', label: 'Company Name', category: 'Project', example: 'Apex Group' },
+  { key: 'company_address', label: 'Office Address', category: 'Project', example: 'SG Highway, Ahmedabad' },
+  { key: 'project_location', label: 'Project Location', category: 'Project', example: 'Satellite, Ahmedabad' },
+  { key: 'rera_number', label: 'RERA Registration No.', category: 'Compliance', example: 'PR/GJ/AHMEDABAD/2026/001' },
+  { key: 'gst_number', label: 'GST Number', category: 'Compliance', example: '24AAACT1234A1Z5' },
+  { key: 'customer_name', label: 'Customer Full Name', category: 'Customer', example: 'Rajesh Patel' },
+  { key: 'customer_mobile', label: 'Customer Mobile', category: 'Customer', example: '+91 98250 12345' },
+  { key: 'customer_phone', label: 'Customer Phone', category: 'Customer', example: '+91 98250 12345' },
+  { key: 'customer_email', label: 'Customer Email', category: 'Customer', example: 'rajesh@example.com' },
+  { key: 'customer_address', label: 'Customer Address', category: 'Customer', example: 'Ahmedabad, Gujarat' },
+  { key: 'customer_pan', label: 'Customer PAN Card', category: 'Customer', example: 'ABCDE1234F' },
+  { key: 'customer_aadhaar', label: 'Customer Aadhaar', category: 'Customer', example: 'XXXX-XXXX-8910' },
+  { key: 'tower_name', label: 'Tower / Wing Name', category: 'Property', example: 'Tower A' },
+  { key: 'floor_name', label: 'Floor Designation', category: 'Property', example: '4th Floor' },
+  { key: 'flat_number', label: 'Flat / Shop Number', category: 'Property', example: 'A-402' },
+  { key: 'unit_type', label: 'Unit Category', category: 'Property', example: '3 BHK' },
+  { key: 'unit_area', label: 'Unit Area (Sq. Ft.)', category: 'Property', example: '1850' },
+  { key: 'carpet_area', label: 'Carpet Area (Sq. Ft.)', category: 'Property', example: '1450' },
+  { key: 'builtup_area', label: 'Built-Up Area (Sq. Ft.)', category: 'Property', example: '1850' },
+  { key: 'parking_slot', label: 'Parking Space Assigned', category: 'Property', example: 'Basement-1 #42' },
+  { key: 'booking_amount', label: 'Booking Amount Paid', category: 'Financials', example: '5,00,000' },
+  { key: 'booking_amount_in_words', label: 'Booking Amount in Words', category: 'Financials', example: 'Rupees Five Lakh Only' },
+  { key: 'paid_amount', label: 'Total Paid Amount', category: 'Financials', example: '25,00,000' },
+  { key: 'pending_amount', label: 'Pending Balance Amount', category: 'Financials', example: '1,00,00,000' },
+  { key: 'total_amount', label: 'Total Agreed Consideration', category: 'Financials', example: '1,25,00,000' },
+  { key: 'total_amount_in_words', label: 'Total Consideration in Words', category: 'Financials', example: 'Rupees One Crore Twenty Five Lakh Only' },
+  { key: 'receipt_number', label: 'Receipt Number', category: 'Document', example: 'RCP-2026-0001' },
+  { key: 'booking_date', label: 'Booking Date', category: 'Document', example: '16-Sep-2026' },
+  { key: 'current_date', label: 'Current Date', category: 'Document', example: '16-Sep-2026' },
+  { key: 'today_date', label: 'Today Date', category: 'Document', example: '16-Sep-2026' },
+];
 
 /**
  * Replaces all occurrences of {{token}} with values from context.
- * Unmatched tokens are gracefully retained or blanked if empty.
+ * Supports conditionals: {{#if variable}} content {{/if}}
+ * Normalizes aliases (e.g. customer_phone -> customer_mobile).
  */
 export function renderTemplate(template: string, context: TemplateContext): string {
   if (!template) return '';
-  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key) => {
-    const val = context[key];
+
+  // 1. Alias normalization
+  const ctx: Record<string, any> = { ...context };
+  if (ctx.customer_mobile && !ctx.customer_phone) ctx.customer_phone = ctx.customer_mobile;
+  if (ctx.customer_phone && !ctx.customer_mobile) ctx.customer_mobile = ctx.customer_phone;
+  if (ctx.developer_name && !ctx.builder_name) ctx.builder_name = ctx.developer_name;
+  if (ctx.builder_name && !ctx.developer_name) ctx.developer_name = ctx.builder_name;
+  if (ctx.current_date && !ctx.today_date) ctx.today_date = ctx.current_date;
+  if (ctx.today_date && !ctx.current_date) ctx.current_date = ctx.today_date;
+  if (ctx.unit_area && !ctx.carpet_area) ctx.carpet_area = ctx.unit_area;
+  if (ctx.carpet_area && !ctx.unit_area) ctx.unit_area = ctx.carpet_area;
+
+  // 2. Process conditional blocks {{#if variable}}...{{/if}}
+  let rendered = template.replace(/\{\{#if\s+([a-zA-Z0-9_]+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_match, key, content) => {
+    const val = ctx[key];
+    return val !== undefined && val !== null && val !== '' && val !== 0 ? content : '';
+  });
+
+  // 3. Process tokens {{token}}
+  rendered = rendered.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key) => {
+    const val = ctx[key];
     if (val === undefined || val === null) {
       return '';
     }
     return String(val);
   });
+
+  return rendered;
+}
+
+/**
+ * Compiles an array of clauses into structured document content with condition checks and ordering.
+ */
+export function compileClauses(clauses: TemplateClause[], context: TemplateContext): string {
+  if (!clauses || clauses.length === 0) return '';
+
+  const activeClauses = [...clauses]
+    .filter((c) => {
+      if (!c.conditionVariable) return true;
+      const val = context[c.conditionVariable];
+      return val !== undefined && val !== null && val !== '' && val !== 0;
+    })
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  return activeClauses
+    .map((clause, idx) => {
+      const num = clause.clauseNumber || `${idx + 1}`;
+      const title = clause.title ? `### ${num}. ${clause.title}\n` : '';
+      const content = renderTemplate(clause.content, context);
+      return `${title}${content}`;
+    })
+    .join('\n\n');
 }
 
 /** Default Banakhat (Agreement for Sale) Template */

@@ -10,6 +10,11 @@ import {
   flatBodySchema,
   shopBodySchema,
   templateBodySchema,
+  projectBrandingBodySchema,
+  projectThemeBodySchema,
+  projectReceiptConfigBodySchema,
+  projectLegalDocConfigBodySchema,
+  projectRulesBodySchema,
 } from '../validators/property.validator';
 import {
   customerBodySchema,
@@ -30,6 +35,7 @@ import * as payments from '../controllers/payment.controller';
 import * as excel from '../controllers/excelImport.controller';
 import * as docs from '../controllers/documentGenerator.controller';
 import * as reports from '../controllers/propertyReport.controller';
+import * as branding from '../controllers/branding.controller';
 
 const router = Router();
 const upload = multer({
@@ -103,14 +109,26 @@ router.get('/import/template', asyncHandler(excel.downloadExcelTemplate));
 router.post('/import/preview', upload.single('file'), asyncHandler(excel.previewExcelImport));
 router.post('/import/execute', asyncHandler(excel.executeExcelImport));
 
-// ── Property Documents & Templates ────────────────────────────────
+// ── Property Documents, Templates & Previews ─────────────────────
 router.get('/documents', asyncHandler(docs.listPropertyDocuments));
+router.get('/documents/variables', asyncHandler(docs.listTemplateVariables));
 router.get('/documents/receipts/:paymentId/pdf', asyncHandler(docs.streamPaymentReceiptPdf));
 router.get('/documents/:id/pdf', asyncHandler(docs.streamPropertyDocumentPdf));
 router.get('/documents/:id', asyncHandler(docs.getPropertyDocument));
 
 router.get('/templates', asyncHandler(docs.listDocumentTemplates));
 router.post('/templates', validate({ body: templateBodySchema }), asyncHandler(docs.createDocumentTemplate));
+
+// ── Project Master Configuration, Branding & Theming ──────────────
+router.get('/projects/:projectId/configuration', asyncHandler(branding.getProjectConfiguration));
+router.put('/projects/:projectId/branding', validate({ body: projectBrandingBodySchema }), asyncHandler(branding.updateProjectBranding));
+router.post('/projects/:projectId/logo', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'logoDark', maxCount: 1 }]), asyncHandler(branding.uploadProjectLogo));
+router.delete('/projects/:projectId/logo', asyncHandler(branding.deleteProjectLogo));
+router.put('/projects/:projectId/theme', validate({ body: projectThemeBodySchema }), asyncHandler(branding.updateProjectTheme));
+router.put('/projects/:projectId/receipt-config', validate({ body: projectReceiptConfigBodySchema }), asyncHandler(branding.updateReceiptConfig));
+router.put('/projects/:projectId/legal-doc-config', validate({ body: projectLegalDocConfigBodySchema }), asyncHandler(branding.updateLegalDocConfig));
+router.put('/projects/:projectId/rules', validate({ body: projectRulesBodySchema }), asyncHandler(branding.updateProjectRules));
+router.post('/projects/:projectId/receipt-preview', asyncHandler(docs.previewReceiptPdf));
 
 // ── Property Dashboard, Analytics & Reports ───────────────────────
 router.get('/dashboard', asyncHandler(reports.getPropertyDashboard));

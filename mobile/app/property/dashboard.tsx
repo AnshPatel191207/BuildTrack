@@ -15,6 +15,7 @@ import { useResource } from '@/hooks/useResource';
 import { propertyService } from '@/services/propertyService';
 import type { PropertyDashboardStats } from '@/types';
 import { formatCompactINR, formatINR } from '@/lib/format';
+import { ProjectSwitcher } from '@/components/property/ProjectSwitcher';
 
 export default function PropertyDashboardScreen() {
   const theme = useTheme();
@@ -106,6 +107,10 @@ export default function PropertyDashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
         }
       >
+        <View style={{ marginTop: spacing.md, marginBottom: 4 }}>
+          <ProjectSwitcher onProjectChange={() => void refresh()} />
+        </View>
+
         {loading && !data ? (
           <View style={{ marginTop: spacing.md }}>
             <Skeleton height={120} style={{ marginBottom: 12 }} />

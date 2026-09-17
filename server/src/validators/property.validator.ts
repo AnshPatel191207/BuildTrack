@@ -132,12 +132,103 @@ export const propertyPaymentBodySchema = z.object({
   generateReceiptImmediately: z.boolean().default(true),
 });
 
+export const templateClauseSchema = z.object({
+  id: z.string().min(1),
+  clauseNumber: z.string().optional().nullable(),
+  title: z.string().min(1).max(200),
+  content: z.string().min(1),
+  isMandatory: z.boolean().default(false),
+  order: z.number().int().default(0),
+  conditionVariable: z.string().optional().nullable(),
+});
+
 export const templateBodySchema = z.object({
-  templateType: z.enum(['receipt', 'banakhat', 'dastavej', 'booking_confirmation', 'demand_letter']),
+  projectId: z.string().optional().nullable(),
+  templateType: z.enum(['receipt', 'invoice', 'banakhat', 'dastavej', 'booking_confirmation', 'demand_letter', 'quotation', 'agreement']),
   title: z.string().min(1).max(140),
   headerHtml: z.string().optional().nullable(),
-  bodyContent: z.string().min(10),
+  bodyContent: z.string().optional().default(''),
   footerHtml: z.string().optional().nullable(),
+  clauses: z.array(templateClauseSchema).optional(),
   termsAndConditions: z.array(z.string()).optional(),
+  showLogo: z.boolean().optional(),
+  showQr: z.boolean().optional(),
+  showRera: z.boolean().optional(),
+  showGst: z.boolean().optional(),
+  watermarkText: z.string().optional().nullable(),
+  signatures: z.array(z.object({
+    role: z.string(),
+    label: z.string(),
+    signerName: z.string().optional().nullable(),
+    required: z.boolean().default(true),
+  })).optional(),
+  witnesses: z.array(z.object({
+    label: z.string(),
+    required: z.boolean().default(true),
+  })).optional(),
   isDefault: z.boolean().optional(),
+});
+
+export const projectBrandingBodySchema = z.object({
+  shortName: z.string().max(60).optional().nullable(),
+  developerName: z.string().max(140).optional().nullable(),
+  companyName: z.string().max(140).optional().nullable(),
+  phone: z.string().max(30).optional().nullable(),
+  email: z.string().email().or(z.literal('')).optional().nullable(),
+  website: z.string().max(200).optional().nullable(),
+  officeAddress: z.string().max(400).optional().nullable(),
+  siteAddress: z.string().max(400).optional().nullable(),
+  gstNumber: z.string().max(30).optional().nullable(),
+  reraNumber: z.string().max(60).optional().nullable(),
+  panNumber: z.string().max(30).optional().nullable(),
+});
+
+export const projectThemeBodySchema = z.object({
+  primary: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Invalid hex color'),
+  secondary: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Invalid hex color').optional(),
+  accent: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Invalid hex color').optional(),
+  success: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Invalid hex color').optional(),
+  warning: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Invalid hex color').optional(),
+  danger: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Invalid hex color').optional(),
+  info: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Invalid hex color').optional(),
+});
+
+export const projectReceiptConfigBodySchema = z.object({
+  showLogo: z.boolean().optional(),
+  showQr: z.boolean().optional(),
+  showGst: z.boolean().optional(),
+  showRera: z.boolean().optional(),
+  showCustomerAddress: z.boolean().optional(),
+  showBankDetails: z.boolean().optional(),
+  watermarkText: z.string().max(100).optional().nullable(),
+  enableDigitalSign: z.boolean().optional(),
+  termsAndConditions: z.array(z.string()).optional(),
+  authorizedSignatoryTitle: z.string().max(140).optional().nullable(),
+  tagline: z.string().max(140).optional().nullable(),
+  jurisdiction: z.string().max(140).optional().nullable(),
+});
+
+export const projectLegalDocConfigBodySchema = z.object({
+  partnershipFirmName: z.string().max(200).optional().nullable(),
+  managingPartners: z.array(z.string()).optional(),
+  subRegistrarOffice: z.string().max(200).optional().nullable(),
+  tpScheme: z.string().max(200).optional().nullable(),
+  surveyNumbers: z.string().max(200).optional().nullable(),
+  finalPlotNumbers: z.string().max(200).optional().nullable(),
+  citySurveyNumbers: z.string().max(200).optional().nullable(),
+  projectTagline: z.string().max(140).optional().nullable(),
+  jurisdiction: z.string().max(140).optional().nullable(),
+});
+
+export const projectRulesBodySchema = z.object({
+  bookingRules: z.object({
+    minTokenAmount: z.number().nonnegative().optional(),
+    tokenValidityDays: z.number().int().positive().optional(),
+    cancellationPenaltyPct: z.number().min(0).max(100).optional(),
+  }).optional(),
+  paymentRules: z.object({
+    defaultGstRate: z.number().min(0).max(28).optional(),
+    overdueInterestPctPerAnnum: z.number().min(0).max(100).optional(),
+    gracePeriodDays: z.number().int().nonnegative().optional(),
+  }).optional(),
 });

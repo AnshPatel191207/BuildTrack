@@ -17,6 +17,8 @@ import {
 } from '../services/pdfGenerator.service';
 import {
   renderTemplate,
+  compileClauses,
+  VARIABLE_REGISTRY,
   DEFAULT_BANAKHAT_TEMPLATE,
   DEFAULT_DASTAVEJ_TEMPLATE,
   numberToWordsINR,
@@ -72,16 +74,24 @@ export async function generatePaymentReceipt(req: Req, res: Response) {
 
   const remainingBalance = Math.max(0, totalUnitValue - totalPaidTillNow);
 
+  // Dynamic branding, theme, and logo resolution
+  const projectBranding = project?.branding || {};
+  const projectTheme = project?.theme || {};
+  const receiptConfig = project?.receiptConfig || {};
+
+  const logoRelative = projectBranding.logoUrl || company?.logo;
+  const logoPath = logoRelative ? path.resolve(process.cwd(), logoRelative.replace(/^\//, '')) : undefined;
+
   // Generate the PDF
   const { relativeUrl } = await generateReceiptPdf({
     receiptNumber: payment.receiptNumber,
     paymentDate: payment.paidDate || payment.createdAt,
-    companyName: company?.name || 'BuildTrack Real Estate',
-    companyAddress: company?.address || undefined,
-    companyPhone: company?.phone || undefined,
-    companyEmail: company?.email || undefined,
-    companyPan: company?.pan || undefined,
-    companyGstin: company?.gstin || undefined,
+    companyName: projectBranding.companyName || company?.name || 'BuildTrack Real Estate',
+    companyAddress: projectBranding.officeAddress || company?.address || undefined,
+    companyPhone: projectBranding.phone || company?.phone || undefined,
+    companyEmail: projectBranding.email || company?.email || undefined,
+    companyPan: projectBranding.panNumber || company?.pan || undefined,
+    companyGstin: projectBranding.gstNumber || company?.gstin || undefined,
     customerName: customer?.name || 'Customer',
     customerPhone: customer?.phone || '',
     customerEmail: customer?.email || undefined,
@@ -89,7 +99,10 @@ export async function generatePaymentReceipt(req: Req, res: Response) {
     customerAddress: customer?.address || undefined,
     projectName: project?.name || 'Real Estate Project',
     projectCode: project?.projectCode || undefined,
-    reraNumber: project?.reraNumber || undefined,
+    developerName: projectBranding.developerName || project?.builderName || company?.name,
+    reraNumber: projectBranding.reraNumber || project?.reraNumber || undefined,
+    towerName: unit?.towerName || undefined,
+    floorName: unit?.floorName || undefined,
     unitNumber: unit?.unitNumber || 'N/A',
     unitType: unit?.unitType || undefined,
     carpetAreaSqft: unit?.carpetAreaSqft || undefined,
@@ -103,6 +116,22 @@ export async function generatePaymentReceipt(req: Req, res: Response) {
     totalPaidTillNow,
     remainingBalance,
     notes: payment.notes || undefined,
+    // Dynamic settings
+    logoPath,
+    primaryColor: projectTheme.primary,
+    secondaryColor: projectTheme.secondary,
+    watermarkText: receiptConfig.watermarkText || project?.name,
+    showLogo: receiptConfig.showLogo ?? true,
+    showQr: receiptConfig.showQr ?? true,
+    showGst: receiptConfig.showGst ?? true,
+    showRera: receiptConfig.showRera ?? true,
+    showCustomerAddress: receiptConfig.showCustomerAddress ?? true,
+    showBankDetails: receiptConfig.showBankDetails ?? true,
+    authorizedSignatoryTitle: receiptConfig.authorizedSignatoryTitle || `For ${projectBranding.developerName || project?.name}`,
+    termsAndConditions: receiptConfig.termsAndConditions,
+    tagline: receiptConfig.tagline || project?.legalDocConfig?.projectTagline || '2 BHK PODIUM HOMES',
+    jurisdiction: receiptConfig.jurisdiction || project?.legalDocConfig?.jurisdiction || 'Ahmedabad Jurisdiction',
+    legalDocConfig: project?.legalDocConfig,
   });
 
   payment.receiptPdfUrl = relativeUrl;
@@ -151,15 +180,19 @@ export async function generateBanakhatDocument(req: Req, res: Response) {
   const project = booking.projectId as any;
   const unit = booking.unitId as any;
 
-  // Retrieve company-specific template or use built-in default
-  let templateBody = DEFAULT_BANAKHAT_TEMPLATE;
-  const customTemplate = await DocumentTemplate.findOne({
+  // Retrieve project-specific template or company default or fallback
+  let customTemplate = await DocumentTemplate.findOne({
     companyId: user.companyId,
+    projectId: project?._id,
     templateType: 'banakhat',
-    isDefault: true,
   });
-  if (customTemplate && customTemplate.bodyContent) {
-    templateBody = customTemplate.bodyContent;
+  if (!customTemplate) {
+    customTemplate = await DocumentTemplate.findOne({
+      companyId: user.companyId,
+      projectId: null,
+      templateType: 'banakhat',
+      isDefault: true,
+    });
   }
 
   // Populate dynamic variables
@@ -174,20 +207,28 @@ export async function generateBanakhatDocument(req: Req, res: Response) {
     year: 'numeric',
   });
 
+  const projectBranding = project?.branding || {};
+  const projectTheme = project?.theme || {};
+
   const context = {
     today_date: todayStr,
-    company_name: company?.name || 'Developer',
-    company_address: company?.address || 'City',
-    company_phone: company?.phone || '',
-    builder_name: project?.builderName || company?.name || 'Developer',
+    current_date: todayStr,
+    company_name: projectBranding.companyName || company?.name || 'Developer',
+    company_address: projectBranding.officeAddress || company?.address || 'City',
+    company_phone: projectBranding.phone || company?.phone || '',
+    builder_name: projectBranding.developerName || project?.builderName || company?.name || 'Developer',
+    developer_name: projectBranding.developerName || project?.builderName || company?.name || 'Developer',
     project_name: project?.name || 'Project',
+    project_short_name: projectBranding.shortName || project?.name || 'Project',
     project_code: project?.projectCode || '',
     project_location: project?.location || project?.address || 'City',
-    rera_number: project?.reraNumber || 'Applied / Pending',
+    rera_number: projectBranding.reraNumber || project?.reraNumber || 'Applied / Pending',
+    gst_number: projectBranding.gstNumber || company?.gstin || '',
     tower_name: unit?.towerName || 'Tower A',
     floor_name: unit?.floorName || '1st Floor',
     flat_number: unit?.unitNumber || 'Unit',
     unit_type: unit?.unitType || 'Flat',
+    unit_area: unit?.carpetAreaSqft || unit?.areaSqft || 0,
     carpet_area: unit?.carpetAreaSqft || unit?.areaSqft || 0,
     builtup_area: unit?.builtUpAreaSqft || unit?.areaSqft || 0,
     facing: unit?.facing || 'Main Entrance',
@@ -203,6 +244,7 @@ export async function generateBanakhatDocument(req: Req, res: Response) {
     discount_amount: booking.discountAmount || 0,
     customer_name: customer?.name || 'Buyer',
     customer_phone: customer?.phone || '',
+    customer_mobile: customer?.phone || '',
     customer_email: customer?.email || '',
     customer_address: customer?.address || 'Address',
     customer_pan: customer?.pan || 'N/A',
@@ -212,17 +254,85 @@ export async function generateBanakhatDocument(req: Req, res: Response) {
     nominee_age: customer?.nominee?.age || 'N/A',
   };
 
-  const renderedContent = renderTemplate(templateBody, context);
+  let renderedContent = '';
+  if (customTemplate && customTemplate.clauses && customTemplate.clauses.length > 0) {
+    renderedContent = compileClauses(customTemplate.clauses, context);
+  } else if (customTemplate && customTemplate.bodyContent) {
+    renderedContent = renderTemplate(customTemplate.bodyContent, context);
+  } else {
+    renderedContent = renderTemplate(DEFAULT_BANAKHAT_TEMPLATE, context);
+  }
+
+  const logoRelative = projectBranding.logoUrl || company?.logo;
+  const logoPath = logoRelative ? path.resolve(process.cwd(), logoRelative.replace(/^\//, '')) : undefined;
 
   // Generate PDF file
   const { relativeUrl } = await generateLegalDocumentPdf({
-    title: 'Agreement for Sale (Banakhat)',
+    title: customTemplate?.title || 'Agreement for Sale (Banakhat)',
     documentNumber,
-    companyName: company?.name || 'Developer',
+    companyName: projectBranding.companyName || company?.name || 'Developer',
     projectName: project?.name || 'Project',
-    reraNumber: project?.reraNumber || undefined,
+    developerName: projectBranding.developerName || project?.builderName || company?.name,
+    reraNumber: projectBranding.reraNumber || project?.reraNumber || undefined,
     bodyContent: renderedContent,
     todayDate: todayStr,
+    logoPath,
+    primaryColor: projectTheme.primary,
+    secondaryColor: projectTheme.secondary,
+    watermarkText: customTemplate?.watermarkText || project?.name,
+    showLogo: customTemplate?.showLogo ?? true,
+    showQr: customTemplate?.showQr ?? true,
+    showRera: customTemplate?.showRera ?? true,
+    signatures: customTemplate?.signatures?.length ? customTemplate.signatures : [
+      { role: 'promoter', label: `For ${projectBranding.developerName || project?.builderName || company?.name}`, signerName: 'Authorized Signatory' },
+      { role: 'purchaser', label: customer?.name || 'Allottee / Purchaser', signerName: customer?.name }
+    ],
+    witnesses: customTemplate?.witnesses?.length ? customTemplate.witnesses : [
+      { label: 'Witness 1' },
+      { label: 'Witness 2' }
+    ],
+    documentType: 'banakhat',
+    projectConfig: {
+      projectName: project?.name || 'Santora',
+      projectCode: project?.projectCode,
+      developerName: projectBranding.developerName || project?.builderName || company?.name || 'RUDRA DEVELOPERS',
+      companyName: projectBranding.companyName || company?.name,
+      officeAddress: projectBranding.officeAddress || company?.address,
+      phone: projectBranding.phone || company?.phone,
+      email: projectBranding.email || company?.email,
+      reraNumber: projectBranding.reraNumber || project?.reraNumber,
+      panNumber: projectBranding.panNumber || company?.pan,
+      logoUrl: logoPath,
+      tagline: project?.receiptConfig?.tagline || project?.legalDocConfig?.projectTagline || '2 BHK PODIUM HOMES',
+      jurisdiction: project?.receiptConfig?.jurisdiction || project?.legalDocConfig?.jurisdiction || 'Ahmedabad Jurisdiction',
+      legalDocConfig: project?.legalDocConfig,
+    },
+    legalDocData: {
+      documentNumber,
+      bookingNumber: booking.bookingNumber,
+      bookingDate: booking.bookingDate,
+      todayDate: todayStr,
+      customerName: customer?.name || 'Purchaser',
+      customerPhone: customer?.phone || '',
+      customerEmail: customer?.email || '',
+      customerPan: customer?.pan || 'N/A',
+      customerAddress: customer?.address || 'Ahmedabad, Gujarat',
+      customerAge: customer?.age || 35,
+      customerOccupation: customer?.occupation || 'Business',
+      unitNumber: unit?.unitNumber || 'Unit',
+      towerName: unit?.towerName || 'Tower A',
+      floorName: unit?.floorName || '1st Floor',
+      unitType: unit?.unitType || 'Flat',
+      carpetAreaSqft: unit?.carpetAreaSqft,
+      carpetAreaSqmt: unit?.carpetAreaSqmt,
+      builtUpAreaSqft: unit?.builtUpAreaSqft,
+      balconyAreaSqmt: unit?.balconyAreaSqmt,
+      washAreaSqmt: unit?.washAreaSqmt,
+      landShareSqmt: unit?.landShareSqmt,
+      totalAmount: totalAmount,
+      bookingAmount: booking.bookingAmount,
+      boundaries: unit?.boundaries,
+    },
   });
 
   const propertyDoc = await PropertyDocument.create({
@@ -275,14 +385,19 @@ export async function generateDastavejDocument(req: Req, res: Response) {
   const project = booking.projectId as any;
   const unit = booking.unitId as any;
 
-  let templateBody = DEFAULT_DASTAVEJ_TEMPLATE;
-  const customTemplate = await DocumentTemplate.findOne({
+  // Retrieve project-specific template or company default or fallback
+  let customTemplate = await DocumentTemplate.findOne({
     companyId: user.companyId,
+    projectId: project?._id,
     templateType: 'dastavej',
-    isDefault: true,
   });
-  if (customTemplate && customTemplate.bodyContent) {
-    templateBody = customTemplate.bodyContent;
+  if (!customTemplate) {
+    customTemplate = await DocumentTemplate.findOne({
+      companyId: user.companyId,
+      projectId: null,
+      templateType: 'dastavej',
+      isDefault: true,
+    });
   }
 
   const documentNumber = await nextDocumentNumber(user.companyId, 'dastavej');
@@ -293,13 +408,21 @@ export async function generateDastavejDocument(req: Req, res: Response) {
     year: 'numeric',
   });
 
+  const projectBranding = project?.branding || {};
+  const projectTheme = project?.theme || {};
+
   const context = {
     today_date: todayStr,
-    company_name: company?.name || 'Vendor',
-    company_address: company?.address || 'Address',
-    builder_name: project?.builderName || company?.name || 'Vendor',
+    current_date: todayStr,
+    company_name: projectBranding.companyName || company?.name || 'Vendor',
+    company_address: projectBranding.officeAddress || company?.address || 'Address',
+    builder_name: projectBranding.developerName || project?.builderName || company?.name || 'Vendor',
+    developer_name: projectBranding.developerName || project?.builderName || company?.name || 'Vendor',
     project_name: project?.name || 'Project',
+    project_short_name: projectBranding.shortName || project?.name || 'Project',
     project_location: project?.location || project?.address || 'City',
+    rera_number: projectBranding.reraNumber || project?.reraNumber || 'Applied / Pending',
+    gst_number: projectBranding.gstNumber || company?.gstin || '',
     tower_name: unit?.towerName || 'Tower A',
     floor_name: unit?.floorName || '1st Floor',
     flat_number: unit?.unitNumber || 'Unit',
@@ -309,21 +432,91 @@ export async function generateDastavejDocument(req: Req, res: Response) {
     total_amount: Math.round(totalAmount).toLocaleString('en-IN'),
     total_amount_in_words: numberToWordsINR(totalAmount),
     customer_name: customer?.name || 'Purchaser',
+    customer_mobile: customer?.phone || '',
+    customer_phone: customer?.phone || '',
     customer_pan: customer?.pan || 'N/A',
     customer_aadhaar: customer?.aadhaar || 'N/A',
     customer_address: customer?.address || 'Address',
   };
 
-  const renderedContent = renderTemplate(templateBody, context);
+  let renderedContent = '';
+  if (customTemplate && customTemplate.clauses && customTemplate.clauses.length > 0) {
+    renderedContent = compileClauses(customTemplate.clauses, context);
+  } else if (customTemplate && customTemplate.bodyContent) {
+    renderedContent = renderTemplate(customTemplate.bodyContent, context);
+  } else {
+    renderedContent = renderTemplate(DEFAULT_DASTAVEJ_TEMPLATE, context);
+  }
+
+  const logoRelative = projectBranding.logoUrl || company?.logo;
+  const logoPath = logoRelative ? path.resolve(process.cwd(), logoRelative.replace(/^\//, '')) : undefined;
 
   const { relativeUrl } = await generateLegalDocumentPdf({
-    title: 'Deed of Conveyance (Dastavej)',
+    title: customTemplate?.title || 'Deed of Conveyance (Dastavej)',
     documentNumber,
-    companyName: company?.name || 'Vendor',
+    companyName: projectBranding.companyName || company?.name || 'Vendor',
     projectName: project?.name || 'Project',
-    reraNumber: project?.reraNumber || undefined,
+    developerName: projectBranding.developerName || project?.builderName || company?.name,
+    reraNumber: projectBranding.reraNumber || project?.reraNumber || undefined,
     bodyContent: renderedContent,
     todayDate: todayStr,
+    logoPath,
+    primaryColor: projectTheme.primary,
+    secondaryColor: projectTheme.secondary,
+    watermarkText: customTemplate?.watermarkText || project?.name,
+    showLogo: customTemplate?.showLogo ?? true,
+    showQr: customTemplate?.showQr ?? true,
+    showRera: customTemplate?.showRera ?? true,
+    signatures: customTemplate?.signatures?.length ? customTemplate.signatures : [
+      { role: 'vendor', label: `For ${projectBranding.developerName || project?.builderName || company?.name}`, signerName: 'Authorized Signatory' },
+      { role: 'purchaser', label: customer?.name || 'Purchaser', signerName: customer?.name }
+    ],
+    witnesses: customTemplate?.witnesses?.length ? customTemplate.witnesses : [
+      { label: 'Witness 1' },
+      { label: 'Witness 2' }
+    ],
+    documentType: 'dastavej',
+    projectConfig: {
+      projectName: project?.name || 'Santora',
+      projectCode: project?.projectCode,
+      developerName: projectBranding.developerName || project?.builderName || company?.name || 'RUDRA DEVELOPERS',
+      companyName: projectBranding.companyName || company?.name,
+      officeAddress: projectBranding.officeAddress || company?.address,
+      phone: projectBranding.phone || company?.phone,
+      email: projectBranding.email || company?.email,
+      reraNumber: projectBranding.reraNumber || project?.reraNumber,
+      panNumber: projectBranding.panNumber || company?.pan,
+      logoUrl: logoPath,
+      tagline: project?.receiptConfig?.tagline || project?.legalDocConfig?.projectTagline || '2 BHK PODIUM HOMES',
+      jurisdiction: project?.receiptConfig?.jurisdiction || project?.legalDocConfig?.jurisdiction || 'Ahmedabad Jurisdiction',
+      legalDocConfig: project?.legalDocConfig,
+    },
+    legalDocData: {
+      documentNumber,
+      bookingNumber: booking.bookingNumber,
+      bookingDate: booking.bookingDate,
+      todayDate: todayStr,
+      customerName: customer?.name || 'Purchaser',
+      customerPhone: customer?.phone || '',
+      customerEmail: customer?.email || '',
+      customerPan: customer?.pan || 'N/A',
+      customerAddress: customer?.address || 'Ahmedabad, Gujarat',
+      customerAge: customer?.age || 35,
+      customerOccupation: customer?.occupation || 'Business',
+      unitNumber: unit?.unitNumber || 'Unit',
+      towerName: unit?.towerName || 'Tower A',
+      floorName: unit?.floorName || '1st Floor',
+      unitType: unit?.unitType || 'Flat',
+      carpetAreaSqft: unit?.carpetAreaSqft,
+      carpetAreaSqmt: unit?.carpetAreaSqmt,
+      builtUpAreaSqft: unit?.builtUpAreaSqft,
+      balconyAreaSqmt: unit?.balconyAreaSqmt,
+      washAreaSqmt: unit?.washAreaSqmt,
+      landShareSqmt: unit?.landShareSqmt,
+      totalAmount: totalAmount,
+      bookingAmount: booking.bookingAmount,
+      boundaries: unit?.boundaries,
+    },
   });
 
   const propertyDoc = await PropertyDocument.create({
@@ -353,6 +546,69 @@ export async function generateDastavejDocument(req: Req, res: Response) {
   });
 
   sendCreated(res, propertyDoc, `Dastavej ${documentNumber} generated successfully.`);
+}
+
+/** Get list of all available dynamic template variables */
+export async function listTemplateVariables(_req: Request, res: Response) {
+  sendSuccess(res, { variables: VARIABLE_REGISTRY });
+}
+
+/** Live Preview Receipt with Custom Project Configuration */
+export async function previewReceiptPdf(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  const { projectId } = req.params;
+  const body = req.body || {};
+
+  const project = await Project.findOne({ _id: projectId, companyId: user.companyId });
+  const company = await Company.findById(user.companyId);
+
+  const branding = project?.branding || {};
+  const theme = project?.theme || {};
+  const receiptConfig = { ...(project?.receiptConfig || {}), ...body };
+
+  const logoRelative = branding.logoUrl || company?.logo;
+  const logoPath = logoRelative ? path.resolve(process.cwd(), logoRelative.replace(/^\//, '')) : undefined;
+
+  const { relativeUrl } = await generateReceiptPdf({
+    receiptNumber: 'RCP-PREVIEW-001',
+    paymentDate: new Date(),
+    companyName: branding.companyName || company?.name || 'BuildTrack Real Estate',
+    companyAddress: branding.officeAddress || company?.address || 'Sample Office Address',
+    companyPhone: branding.phone || company?.phone || '+91 98250 00000',
+    companyEmail: branding.email || company?.email || 'sales@example.com',
+    companyGstin: branding.gstNumber || company?.gstin || '24AAACT0000A1Z5',
+    customerName: 'Sample Purchaser (Preview)',
+    customerPhone: '+91 98000 00000',
+    customerAddress: 'Sample Residence Address, City',
+    projectName: project?.name || 'Sample Project',
+    developerName: branding.developerName || project?.builderName || 'Sample Developers',
+    reraNumber: branding.reraNumber || project?.reraNumber || 'PR/GJ/SAMPLE/2026/01',
+    unitNumber: 'A-101',
+    unitType: '3 BHK Luxury',
+    carpetAreaSqft: 1850,
+    paymentAmount: 500000,
+    paymentMode: 'NEFT / RTGS',
+    totalUnitValue: 12500000,
+    totalPaidTillNow: 2500000,
+    remainingBalance: 10000000,
+    logoPath,
+    primaryColor: body.primaryColor || theme.primary || '#E8590C',
+    secondaryColor: body.secondaryColor || theme.secondary || '#17263B',
+    watermarkText: receiptConfig.watermarkText || project?.name,
+    showLogo: receiptConfig.showLogo ?? true,
+    showQr: receiptConfig.showQr ?? true,
+    showGst: receiptConfig.showGst ?? true,
+    showRera: receiptConfig.showRera ?? true,
+    showCustomerAddress: receiptConfig.showCustomerAddress ?? true,
+    showBankDetails: receiptConfig.showBankDetails ?? true,
+    termsAndConditions: receiptConfig.termsAndConditions,
+    authorizedSignatoryTitle: receiptConfig.authorizedSignatoryTitle || `For ${branding.developerName || project?.name || 'Developer'}`,
+    tagline: body.tagline || receiptConfig.tagline || project?.legalDocConfig?.projectTagline || '2 BHK PODIUM HOMES',
+    jurisdiction: body.jurisdiction || receiptConfig.jurisdiction || project?.legalDocConfig?.jurisdiction || 'Ahmedabad Jurisdiction',
+    legalDocConfig: body.legalDocConfig || project?.legalDocConfig,
+  });
+
+  sendSuccess(res, { previewPdfUrl: relativeUrl }, 'Preview generated successfully');
 }
 
 // ── Template Management ──────────────────────────────────────────
@@ -473,6 +729,11 @@ export async function streamPaymentReceiptPdf(req: Req, res: Response) {
     totalUnitValue,
     totalPaidTillNow,
     remainingBalance: Math.max(0, totalUnitValue - totalPaidTillNow),
+    tagline: project?.receiptConfig?.tagline || project?.legalDocConfig?.projectTagline || '2 BHK PODIUM HOMES',
+    jurisdiction: project?.receiptConfig?.jurisdiction || project?.legalDocConfig?.jurisdiction || 'Ahmedabad Jurisdiction',
+    legalDocConfig: project?.legalDocConfig,
+    developerName: project?.branding?.developerName || project?.builderName || company?.name,
+    logoPath: project?.branding?.logoUrl ? path.resolve(process.cwd(), project.branding.logoUrl.replace(/^\//, '')) : undefined,
   });
 
   if (payment.receiptPdfUrl !== relativeUrl) {

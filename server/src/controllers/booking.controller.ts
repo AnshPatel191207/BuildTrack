@@ -27,7 +27,17 @@ export async function listBookings(req: Req, res: Response) {
     await assertProjectAccess(user, q.projectId);
     filter.projectId = q.projectId;
   }
-  if (q.status) filter.status = q.status;
+  if (q.status) {
+    const statuses = String(q.status)
+      .split(',')
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    if (statuses.length > 1) {
+      filter.status = { $in: statuses };
+    } else if (statuses.length === 1) {
+      filter.status = statuses[0];
+    }
+  }
   if (q.customerId) filter.customerId = q.customerId;
   if (q.salesManagerId) filter.salesManagerId = q.salesManagerId;
   if (q.search) {
@@ -419,8 +429,14 @@ export async function deleteBooking(req: Req, res: Response) {
   if (booking.status === 'confirmed' || booking.status === 'sold') {
     throw ApiError.badRequest('Cancel the booking instead of deleting it.');
   }
+  const hasPaidPayments = await Payment.exists({ bookingId: booking._id, status: 'paid' });
+  if (hasPaidPayments) {
+    throw ApiError.badRequest(
+      'Cannot delete booking with recorded payment transactions. Financial records must be preserved. Please cancel the booking instead.',
+    );
+  }
   await Promise.all([
-    Payment.deleteMany({ bookingId: booking._id }),
+    Payment.deleteMany({ bookingId: booking._id, status: { $ne: 'paid' } }),
     import('../models/Approval.js').then(({ Approval }) =>
       Approval.deleteMany({ entityType: 'booking', entityId: booking._id }),
     ),

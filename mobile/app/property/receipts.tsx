@@ -34,14 +34,15 @@ export default function PropertyReceiptsScreen() {
     refresh,
     reload,
   } = useResource<PropertyPayment[]>(
-    () => propertyService.listPayments(),
+    () => propertyService.listPayments({ status: 'paid' }),
     [],
   );
 
   const filteredReceipts = (payments || []).filter((p) => {
+    if (p.status !== 'paid' && !p.receiptNumber) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    const rNo = (p.receiptNumber || '').toLowerCase();
+    const rNo = (p.receiptNumber || p.paymentNumber || '').toLowerCase();
     const custName = ((p.customerId as any)?.name || '').toLowerCase();
     return rNo.includes(q) || custName.includes(q);
   });
@@ -115,7 +116,7 @@ export default function PropertyReceiptsScreen() {
                   <View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>
-                        {r.receiptNumber || 'RCP-UNKNOWN'}
+                        {r.receiptNumber || r.paymentNumber || 'OFFICIAL RECEIPT'}
                       </Text>
                       <Badge tone="orange" label={(r.mode || r.method || 'PAYMENT').toUpperCase()} />
                     </View>

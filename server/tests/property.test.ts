@@ -556,4 +556,65 @@ describe.skipIf(skip)('Property ERP End-to-End Test Suite', () => {
       expect(res.status).toBe(403);
     });
   });
+
+  // ── 9. Production Data Integrity & Immutability Protection ─────────
+  describe('Production Data Integrity & Financial Immutability Protection', () => {
+    it('rejects deletion of a paid payment record with 400 Bad Request', async () => {
+      const res = await request(app)
+        .delete(`/api/payments/${paymentId}`)
+        .set(authHeader(ownerToken));
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/audit trail|immutable|financial/i);
+    });
+
+    it('rejects deletion of a booking with recorded paid payments with 400 Bad Request', async () => {
+      const res = await request(app)
+        .delete(`/api/bookings/${bookingId}`)
+        .set(authHeader(ownerToken));
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/cancel the booking instead of deleting|paid payment|financial/i);
+    });
+
+    it('rejects deletion of a customer with existing bookings/payments with 400 Bad Request', async () => {
+      const res = await request(app)
+        .delete(`/api/customers/${customerId}`)
+        .set(authHeader(ownerToken));
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/associated with existing bookings|active booking|payment transaction/i);
+    });
+
+    it('accepts ISO-8601 timestamps in payment paidDate and dueDate', async () => {
+      const isoNow = new Date().toISOString();
+      const res = await request(app)
+        .post('/api/payments')
+        .set(authHeader(ownerToken))
+        .send({
+          projectId,
+          customerId,
+          bookingId,
+          amount: 100000,
+          paymentType: 'installment',
+          paidDate: isoNow,
+          dueDate: isoNow,
+          method: 'bank_transfer',
+          notes: 'ISO timestamp payment test',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('supports multi-status querying (e.g. status=confirmed,sold)', async () => {
+      const res = await request(app)
+        .get('/api/bookings?status=confirmed,sold')
+        .set(authHeader(ownerToken));
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
+    });
+  });
 });

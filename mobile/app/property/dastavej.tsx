@@ -30,9 +30,9 @@ export default function PropertyDastavejScreen() {
   const [registrationFee, setRegistrationFee] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
 
-  // Fetch confirmed bookings
+  // Fetch confirmed and sold bookings
   const { data: bookings } = useResource<PropertyBooking[]>(
-    () => propertyService.listBookings({ status: 'confirmed' }),
+    () => propertyService.listBookings({ status: 'confirmed,sold' as any }),
     [],
   );
 
@@ -247,7 +247,7 @@ export default function PropertyDastavejScreen() {
                         }}
                       >
                         <Text style={{ fontSize: 12, fontWeight: '600', color: active ? '#fff' : colors.text }}>
-                          Unit {(b.unitId as any)?.unitNumber || 'Unit'} • {(b.customerId as any)?.name || 'Buyer'}
+                          Unit {(b.unitId as any)?.unitNumber || 'Unit'} • {(b.customerId as any)?.name || 'Buyer'}{b.status ? ` [${b.status.toUpperCase()}]` : ''}
                         </Text>
                       </Pressable>
                     );

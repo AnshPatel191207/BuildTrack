@@ -147,8 +147,38 @@ export const propertyService = {
       .then((r) => r.data.data),
 
   getBooking: async (bookingId: string) => {
-    const res = await api.get<ApiResponse<PropertyBooking>>(`/property/bookings/${bookingId}`);
-    return res.data.data;
+    const res = await api.get<ApiResponse<any>>(`/property/bookings/${bookingId}`);
+    const data = res.data.data;
+    if (data && data.booking) {
+      const schedule =
+        data.payments && data.payments.length > 0
+          ? data.payments.map((p: any) => ({
+              ...p,
+              title:
+                p.notes ||
+                (p.paymentType === 'booking_amount'
+                  ? 'Token Advance'
+                  : p.paymentType === 'final'
+                    ? 'Final Payment'
+                    : `Installment (${p.paymentNumber})`),
+              amount: p.amount,
+              percentage:
+                data.booking.totalValue > 0
+                  ? Math.round((p.amount / data.booking.totalValue) * 100)
+                  : 0,
+              dueDate: p.dueDate,
+              status: p.status,
+            }))
+          : data.booking.paymentSchedule || [];
+
+      return {
+        ...data.booking,
+        payments: data.payments,
+        summary: data.summary,
+        paymentSchedule: schedule,
+      };
+    }
+    return data;
   },
 
   createBooking: async (input: {
@@ -164,16 +194,20 @@ export const propertyService = {
     return res.data.data;
   },
 
-  generateSchedule: async (bookingId: string, milestones: any[]) => {
+  generateSchedule: async (
+    bookingId: string,
+    payload: any[] | { milestones?: any[]; installments?: number; startDate?: string; frequencyMonths?: number },
+  ) => {
+    const body = Array.isArray(payload) ? { milestones: payload } : payload;
     const res = await api.post<ApiResponse<PropertyBooking>>(
       `/property/bookings/${bookingId}/schedule`,
-      { milestones },
+      body,
     );
     return res.data.data;
   },
 
   // ── Receivables & Payments ─────────────────────────────────────
-  listPayments: (filters: { bookingId?: string; customerId?: string } = {}) =>
+  listPayments: (filters: { bookingId?: string; customerId?: string; status?: string; projectId?: string } = {}) =>
     api
       .get<ApiResponse<PropertyPayment[]>>('/property/payments', { params: cleanParams(filters) })
       .then((r) => r.data.data),

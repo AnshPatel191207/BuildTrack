@@ -240,6 +240,11 @@ export async function deletePayment(req: Req, res: Response) {
   if (!payment || !payment.companyId.equals(user.companyId!)) {
     throw ApiError.notFound('Payment not found.');
   }
+  if (payment.status === 'paid' || payment.receiptNumber) {
+    throw ApiError.badRequest(
+      'Cannot delete a payment that is already marked as paid or has an issued receipt. Financial transactions are immutable.',
+    );
+  }
   await payment.deleteOne();
   await logAudit(req, {
     action: 'delete',

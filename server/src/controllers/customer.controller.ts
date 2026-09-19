@@ -123,11 +123,17 @@ export async function deleteCustomer(req: Req, res: Response) {
   if (!customer || !customer.companyId.equals(user.companyId!)) {
     throw ApiError.notFound('Customer not found.');
   }
-  const activeBooking = await import('../models/Booking.js').then(({ Booking }) =>
-    Booking.exists({ customerId: customer._id, status: { $in: ['pending', 'confirmed'] } }),
+  const hasBooking = await import('../models/Booking.js').then(({ Booking }) =>
+    Booking.exists({ customerId: customer._id }),
   );
-  if (activeBooking) {
-    throw ApiError.badRequest('This customer has an active booking and cannot be deleted.');
+  if (hasBooking) {
+    throw ApiError.badRequest('This customer is associated with existing bookings and cannot be deleted.');
+  }
+  const hasPayments = await import('../models/Payment.js').then(({ Payment }) =>
+    Payment.exists({ customerId: customer._id }),
+  );
+  if (hasPayments) {
+    throw ApiError.badRequest('This customer has recorded payment transactions and cannot be deleted.');
   }
   await customer.deleteOne();
   await logAudit(req, {

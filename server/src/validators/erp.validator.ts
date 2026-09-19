@@ -241,7 +241,7 @@ export const bookingScheduleSchema = z.object({
 
 export const bookingQuerySchema = z.object({
   projectId: objectId.optional(),
-  status: z.enum(['pending', 'confirmed', 'cancelled', 'sold']).optional(),
+  status: z.string().optional(),
   customerId: objectId.optional(),
   salesManagerId: objectId.optional(),
   ...pageQuery,

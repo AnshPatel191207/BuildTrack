@@ -57,11 +57,58 @@ export default function PropertyBookingsScreen() {
     [],
   );
 
-  // Fetch available units for selected project
+  // Fetch available flats & commercial shops for selected project
   const { data: availableFlats } = useResource<PropertyUnit[]>(
     () => (selectedProjectId ? propertyService.listFlats(selectedProjectId, { status: 'available' }) : Promise.resolve([])),
     [selectedProjectId],
   );
+
+  const { data: availableShops } = useResource<PropertyUnit[]>(
+    () => (selectedProjectId ? propertyService.listShops(selectedProjectId, { status: 'available' }) : Promise.resolve([])),
+    [selectedProjectId],
+  );
+
+  const availableUnits = React.useMemo(() => {
+    const flats = (availableFlats || []).map((f) => ({ ...f, category: f.category || 'flat' }));
+    const shops = (availableShops || []).map((s) => ({ ...s, category: s.category || 'shop' }));
+    return [...flats, ...shops];
+  }, [availableFlats, availableShops]);
+
+  const [unitCategoryFilter, setUnitCategoryFilter] = useState<'all' | 'flat' | 'shop'>('all');
+  const [unitSearch, setUnitSearch] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+
+  const filteredUnits = React.useMemo(() => {
+    return availableUnits.filter((u) => {
+      if (unitCategoryFilter !== 'all' && u.category !== unitCategoryFilter) return false;
+      if (unitSearch.trim()) {
+        const q = unitSearch.toLowerCase();
+        const num = (u.unitNumber || '').toLowerCase();
+        const type = (u.unitType || '').toLowerCase();
+        return num.includes(q) || type.includes(q);
+      }
+      return true;
+    });
+  }, [availableUnits, unitCategoryFilter, unitSearch]);
+
+  const filteredCustomers = React.useMemo(() => {
+    if (!customerSearch.trim()) return customers || [];
+    const q = customerSearch.toLowerCase();
+    return (customers || []).filter((c) => {
+      return (c.name || '').toLowerCase().includes(q) || (c.phone || '').includes(q);
+    });
+  }, [customers, customerSearch]);
+
+  // Selected unit details
+  const selectedUnit = availableUnits.find((u) => u._id === unitId);
+  const selectedCustomer = customers?.find((c) => c._id === customerId);
+
+  // Computed summary
+  const numericTotal = Number(totalAmount) || 0;
+  const numericDiscount = Number(discountAmount) || 0;
+  const numericToken = Number(tokenAmount) || 0;
+  const netPayable = Math.max(0, numericTotal - numericDiscount);
+  const balanceAfterToken = Math.max(0, netPayable - numericToken);
 
   // Fetch bookings
   const {
@@ -97,6 +144,10 @@ export default function PropertyBookingsScreen() {
       showToast('Enter valid agreed total amount', 'error');
       return;
     }
+    if (numericDiscount > numericTotal) {
+      showToast('Discount cannot exceed the total price', 'error');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -117,6 +168,8 @@ export default function PropertyBookingsScreen() {
       setTokenAmount('');
       setDiscountAmount('');
       setDiscountReason('');
+      setUnitSearch('');
+      setCustomerSearch('');
       void reload();
     } catch (err: any) {
       showToast(err?.response?.data?.message || 'Failed to create booking', 'error');
@@ -130,7 +183,10 @@ export default function PropertyBookingsScreen() {
       case 'confirmed':
         return <Badge tone="success" label="Confirmed" />;
       case 'draft':
-        return <Badge tone="neutral" label="Draft" />;
+      case 'pending':
+        return <Badge tone="warning" label="Pending Approval" />;
+      case 'sold':
+        return <Badge tone="info" label="Sold" />;
       case 'registered':
         return <Badge tone="info" label="Registered" />;
       case 'cancelled':
@@ -165,14 +221,14 @@ export default function PropertyBookingsScreen() {
       />
       <OfflineBanner />
 
-      {/* Project Selector Bar */}
-      {projects && projects.length > 0 && (
-        <View style={{ paddingVertical: 8, borderBottomWidth: 1, borderColor: colors.border }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: 8 }}>
+      <View style={{ paddingHorizontal: spacing.lg, paddingTop: 10 }}>
+        {/* Project Selector Horizontal Scroll */}
+        {projects && projects.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 8 }}>
             <Pressable
               onPress={() => setSelectedProjectId('')}
               style={{
-                paddingHorizontal: 12,
+                paddingHorizontal: 14,
                 paddingVertical: 6,
                 borderRadius: radius.full,
                 backgroundColor: !selectedProjectId ? colors.primary : colors.surface,
@@ -180,7 +236,7 @@ export default function PropertyBookingsScreen() {
                 borderColor: !selectedProjectId ? colors.primary : colors.border,
               }}
             >
-              <Text style={{ color: !selectedProjectId ? '#fff' : colors.text, fontSize: 12, fontWeight: '600' }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: !selectedProjectId ? '#fff' : colors.text }}>
                 All Projects
               </Text>
             </Pressable>
@@ -191,7 +247,7 @@ export default function PropertyBookingsScreen() {
                   key={p._id}
                   onPress={() => setSelectedProjectId(p._id)}
                   style={{
-                    paddingHorizontal: 12,
+                    paddingHorizontal: 14,
                     paddingVertical: 6,
                     borderRadius: radius.full,
                     backgroundColor: active ? colors.primary : colors.surface,
@@ -199,36 +255,39 @@ export default function PropertyBookingsScreen() {
                     borderColor: active ? colors.primary : colors.border,
                   }}
                 >
-                  <Text style={{ color: active ? '#fff' : colors.text, fontSize: 12, fontWeight: active ? '700' : '500' }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: active ? '#fff' : colors.text }}>
                     {p.name}
                   </Text>
                 </Pressable>
               );
             })}
           </ScrollView>
-        </View>
-      )}
+        )}
 
-      {/* Status Filter */}
-      <View style={{ paddingHorizontal: spacing.lg, paddingVertical: 8, borderBottomWidth: 1, borderColor: colors.border }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-          {['all', 'draft', 'confirmed', 'registered', 'cancelled'].map((st) => {
+        {/* Status Filter Tabs */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
+          {['all', 'pending', 'confirmed', 'sold', 'cancelled'].map((st) => {
             const active = statusFilter === st;
             return (
               <Pressable
                 key={st}
                 onPress={() => setStatusFilter(st)}
                 style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
+                  paddingHorizontal: 12,
+                  paddingVertical: 5,
                   borderRadius: radius.sm,
-                  backgroundColor: active ? colors.primary : colors.surface,
-                  borderWidth: 1,
-                  borderColor: active ? colors.primary : colors.border,
+                  backgroundColor: active ? colors.primaryMuted : 'transparent',
                 }}
               >
-                <Text style={{ fontSize: 11, fontWeight: '600', color: active ? '#fff' : colors.textMuted, textTransform: 'capitalize' }}>
-                  {st}
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: active ? '700' : '500',
+                    color: active ? colors.primary : colors.textFaint,
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {st === 'all' ? 'All Bookings' : st}
                 </Text>
               </Pressable>
             );
@@ -244,17 +303,17 @@ export default function PropertyBookingsScreen() {
       >
         {loading ? (
           <View style={{ gap: 12 }}>
-            <Skeleton height={120} />
-            <Skeleton height={120} />
-            <Skeleton height={120} />
+            <Skeleton height={130} />
+            <Skeleton height={130} />
+            <Skeleton height={130} />
           </View>
         ) : error ? (
           <ErrorState message={error || 'Failed to load bookings'} onRetry={reload} />
         ) : !bookings || bookings.length === 0 ? (
           <EmptyState
-            title="No Bookings Recorded"
-            message="Create a property booking to allocate a flat or shop to a customer."
-            actionLabel="New Booking"
+            title="No Bookings Yet"
+            message="No units have been reserved or booked under this project."
+            actionLabel="Create Booking"
             onAction={() => setModalOpen(true)}
           />
         ) : (
@@ -332,18 +391,36 @@ export default function PropertyBookingsScreen() {
             }}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>New Property Booking</Text>
+              <View>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>New Property Booking</Text>
+                <Text style={{ fontSize: 12, color: colors.textMuted }}>Allot Flat or Commercial Shop</Text>
+              </View>
               <Pressable onPress={() => setModalOpen(false)}>
                 <Ionicons name="close" size={24} color={colors.textMuted} />
               </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={{ gap: 12 }}>
+            <ScrollView contentContainerStyle={{ gap: 14 }}>
               {/* Customer Selector */}
               <View>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text, marginBottom: 6 }}>Select Customer *</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text }}>Select Customer *</Text>
+                  {selectedCustomer ? (
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>
+                      ✓ {selectedCustomer.name}
+                    </Text>
+                  ) : null}
+                </View>
+
+                <Input
+                  placeholder="Filter customers by name or phone..."
+                  value={customerSearch}
+                  onChangeText={setCustomerSearch}
+                  style={{ marginBottom: 6 }}
+                />
+
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                  {customers?.map((c) => {
+                  {filteredCustomers.map((c) => {
                     const active = c._id === customerId;
                     return (
                       <Pressable
@@ -364,39 +441,99 @@ export default function PropertyBookingsScreen() {
                       </Pressable>
                     );
                   })}
+                  {filteredCustomers.length === 0 ? (
+                    <Text style={{ fontSize: 12, color: colors.textFaint, paddingVertical: 6 }}>No matching customers</Text>
+                  ) : null}
                 </ScrollView>
               </View>
 
-              {/* Unit Selector */}
+              {/* Unit Category & Unit Selector */}
               <View>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text, marginBottom: 6 }}>Select Available Unit *</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                  {availableFlats?.map((u) => {
-                    const active = u._id === unitId;
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text }}>Select Available Unit *</Text>
+                  {selectedUnit ? (
+                    <Badge
+                      tone={selectedUnit.category === 'shop' ? 'orange' : 'success'}
+                      label={`${selectedUnit.unitNumber} (${selectedUnit.category === 'shop' ? 'Shop' : 'Flat'})`}
+                    />
+                  ) : null}
+                </View>
+
+                {/* Category Pills */}
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+                  {(['all', 'flat', 'shop'] as const).map((cat) => {
+                    const active = unitCategoryFilter === cat;
                     return (
                       <Pressable
-                        key={u._id}
-                        onPress={() => {
-                          setUnitId(u._id);
-                          if (u.basePrice) {
-                            setTotalAmount(String(u.basePrice));
-                          }
-                        }}
+                        key={cat}
+                        onPress={() => setUnitCategoryFilter(cat)}
                         style={{
                           paddingHorizontal: 12,
-                          paddingVertical: 7,
-                          borderRadius: radius.md,
+                          paddingVertical: 5,
+                          borderRadius: radius.full,
                           backgroundColor: active ? colors.primary : colors.surface,
                           borderWidth: 1,
                           borderColor: active ? colors.primary : colors.border,
                         }}
                       >
-                        <Text style={{ fontSize: 12, fontWeight: '600', color: active ? '#fff' : colors.text }}>
-                          {u.unitNumber} ({u.bedrooms ? `${u.bedrooms}BHK` : 'Unit'})
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: active ? '#fff' : colors.text }}>
+                          {cat === 'all' ? `All Units (${availableUnits.length})` : cat === 'flat' ? `Flats (${availableFlats?.length || 0})` : `Shops (${availableShops?.length || 0})`}
                         </Text>
                       </Pressable>
                     );
                   })}
+                </View>
+
+                <Input
+                  placeholder="Search unit number (e.g. A-101, SHOP-01)..."
+                  value={unitSearch}
+                  onChangeText={setUnitSearch}
+                  style={{ marginBottom: 6 }}
+                />
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                  {filteredUnits.map((u) => {
+                    const active = u._id === unitId;
+                    const isShop = u.category === 'shop';
+                    return (
+                      <Pressable
+                        key={u._id}
+                        onPress={() => {
+                          setUnitId(u._id);
+                          const price = u.totalValue || u.basePrice || 0;
+                          if (price > 0) {
+                            setTotalAmount(String(price));
+                          }
+                        }}
+                        style={{
+                          paddingHorizontal: 14,
+                          paddingVertical: 10,
+                          borderRadius: radius.md,
+                          backgroundColor: active ? colors.primary : colors.surface,
+                          borderWidth: 1,
+                          borderColor: active ? colors.primary : colors.border,
+                          minWidth: 120,
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 14, fontWeight: '800', color: active ? '#fff' : colors.text }}>
+                            {u.unitNumber}
+                          </Text>
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: active ? '#fff' : colors.textFaint, textTransform: 'uppercase' }}>
+                            {isShop ? 'Shop' : u.bedrooms ? `${u.bedrooms}BHK` : 'Flat'}
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 11, color: active ? '#fff' : colors.textMuted, marginTop: 4 }}>
+                          {formatCurrency(u.totalValue || u.basePrice)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                  {filteredUnits.length === 0 ? (
+                    <Text style={{ fontSize: 12, color: colors.textFaint, paddingVertical: 8 }}>
+                      No available units found. Check filter or import inventory.
+                    </Text>
+                  ) : null}
                 </ScrollView>
               </View>
 
@@ -409,7 +546,7 @@ export default function PropertyBookingsScreen() {
               />
 
               <Input
-                label="Token / Booking Deposit Paid (₹)"
+                label="Token / Booking Deposit Paid Now (₹)"
                 placeholder="e.g. 100000"
                 keyboardType="numeric"
                 value={tokenAmount}
@@ -436,11 +573,51 @@ export default function PropertyBookingsScreen() {
                 </View>
               </View>
 
+              {/* Live Deal Summary Box */}
+              {numericTotal > 0 ? (
+                <View
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderRadius: radius.md,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    padding: 12,
+                    gap: 6,
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: colors.text, marginBottom: 2 }}>
+                    Deal Financial Summary
+                  </Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: colors.textMuted }}>Agreed Base Amount:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text }}>{formatCurrency(numericTotal)}</Text>
+                  </View>
+                  {numericDiscount > 0 ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ fontSize: 12, color: colors.danger }}>Discount Applied:</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.danger }}>- {formatCurrency(numericDiscount)}</Text>
+                    </View>
+                  ) : null}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderColor: colors.border, paddingTop: 4 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: colors.text }}>Net Payable Price:</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: colors.primary }}>{formatCurrency(netPayable)}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: colors.success }}>Token Amount Paid:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.success }}>{formatCurrency(numericToken)}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: colors.textMuted }}>Remaining Balance Due:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: colors.text }}>{formatCurrency(balanceAfterToken)}</Text>
+                  </View>
+                </View>
+              ) : null}
+
               <Button
                 label={submitting ? 'Creating Booking...' : 'Confirm Booking'}
                 onPress={handleCreateBooking}
                 disabled={submitting}
-                style={{ marginTop: 8 }}
+                style={{ marginTop: 4, marginBottom: 16 }}
               />
             </ScrollView>
           </View>

@@ -68,7 +68,7 @@ export default function TabsLayout() {
       {showBusiness ? (
         <Tabs.Screen
           name="business"
-          options={{ title: 'Business', tabBarIcon: ({ focused }) => icon('business2', focused, colors.primary) }}
+          options={{ title: 'Operations', tabBarIcon: ({ focused }) => icon('business2', focused, colors.primary) }}
         />
       ) : (
         <Tabs.Screen name="business" options={{ href: null }} />

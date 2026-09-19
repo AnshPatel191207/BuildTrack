@@ -61,6 +61,7 @@ export default function PropertyDashboardScreen() {
         title="Property ERP"
         subtitle="Real estate inventory & sales cockpit"
         large
+        onBack={() => router.back()}
         right={
           <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
             <Pressable

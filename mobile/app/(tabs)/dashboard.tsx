@@ -192,6 +192,61 @@ export default function DashboardScreen() {
               />
             </View>
 
+            {/* Quick Workflows Fast-Track */}
+            <View style={{ marginTop: 14, paddingHorizontal: spacing.lg }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text
+                  style={{
+                    color: colors.textFaint,
+                    fontSize: 12,
+                    fontWeight: '700',
+                    letterSpacing: 0.8,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Quick Workflows
+                </Text>
+                <Pressable onPress={() => router.push('/(tabs)/business')}>
+                  <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>Operations Hub →</Text>
+                </Pressable>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8 }}
+              >
+                {[
+                  { label: 'Log Expense', icon: 'wallet-outline', route: '/modal/expense', tone: colors.primary },
+                  { label: 'Record Due', icon: 'cash-outline', route: '/modal/payment', tone: colors.navy },
+                  { label: 'New Lead', icon: 'person-add-outline', route: '/modal/lead', tone: colors.success },
+                  { label: 'Attendance', icon: 'people-outline', route: '/(tabs)/workers', tone: colors.warning },
+                  { label: 'Property ERP', icon: 'business-outline', route: '/property/dashboard', tone: colors.info },
+                ].map((action) => (
+                  <Pressable
+                    key={action.label}
+                    onPress={() => router.push(action.route as never)}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 7,
+                      backgroundColor: colors.surface,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: radius.full,
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      opacity: pressed ? 0.75 : 1,
+                    })}
+                  >
+                    <Ionicons name={action.icon as never} size={15} color={action.tone} />
+                    <Text style={{ color: colors.text, fontSize: 12.5, fontWeight: '700' }}>
+                      {action.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+
             {/* Projects */}
             <SectionHeader label="Your projects" actionLabel="See all" onPressAction={() => router.push('/(tabs)/projects')} />
             {data!.projects.length === 0 ? (

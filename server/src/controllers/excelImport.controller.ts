@@ -5,20 +5,27 @@ import {
   parseAndPreviewExcel,
   executeExcelBulkImport,
 } from '../services/excelImport.service';
+import { Project } from '../models/Project';
 import { hasPermission } from '../utils/permissions';
 import { logAudit } from '../utils/audit';
 import type { AuthUser } from '../types';
 
 type Req = Request & { validatedBody?: any; file?: Express.Multer.File };
 
-/** GET /api/property/import/template — Download sample Excel file */
-export async function downloadExcelTemplate(_req: Request, res: Response) {
-  const buffer = generateSampleExcelTemplate();
+/** GET /api/property/import/template — Download sample Excel file with all flat and shop details */
+export async function downloadExcelTemplate(req: Request, res: Response) {
+  const projectId = req.query.projectId as string | undefined;
+  let project: any = null;
+  if (projectId && projectId !== 'undefined') {
+    project = await Project.findById(projectId).select('name projectCode').lean();
+  }
+
+  const buffer = generateSampleExcelTemplate(project);
   res.setHeader(
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   );
-  res.setHeader('Content-Disposition', 'attachment; filename="BuildTrack_Unit_Import_Template.xlsx"');
+  res.setHeader('Content-Disposition', 'attachment; filename="BuildTrack_Property_Import_Template.xlsx"');
   res.send(buffer);
 }
 
@@ -33,7 +40,8 @@ export async function previewExcelImport(req: Req, res: Response) {
     throw ApiError.badRequest('Please upload an Excel spreadsheet file (.xlsx or .xls).');
   }
 
-  const preview = await parseAndPreviewExcel(req.file.buffer, user.companyId);
+  const projectId = (req.body?.projectId || req.query?.projectId) as string | undefined;
+  const preview = await parseAndPreviewExcel(req.file.buffer, user.companyId, projectId);
   sendSuccess(res, preview, 'File parsed successfully. Review preview below.');
 }
 

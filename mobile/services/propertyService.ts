@@ -244,12 +244,17 @@ export const propertyService = {
 
   // ── Excel Bulk Import ──────────────────────────────────────────
   getImportTemplateUrl: (projectId?: string) => {
-    const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
-    return `${API_URL}/property/import/template${qs}`;
+    const token = getAccessToken();
+    const params: Record<string, string> = {};
+    if (projectId) params.projectId = projectId;
+    if (token) params.token = token;
+    const qs = new URLSearchParams(params).toString();
+    return `${API_URL}/property/import/template${qs ? `?${qs}` : ''}`;
   },
 
-  previewExcelImport: async (formData: FormData) => {
-    const res = await api.post<ApiResponse<ExcelImportPreview>>('/property/import/preview', formData, {
+  previewExcelImport: async (formData: FormData, projectId?: string) => {
+    const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
+    const res = await api.post<ApiResponse<ExcelImportPreview>>(`/property/import/preview${qs}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return res.data.data;

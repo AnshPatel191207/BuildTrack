@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshControl, ScrollView, Text, View, Pressable, Modal } from 'react-native';
+import { RefreshControl, ScrollView, Text, View, Pressable, Modal, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -156,6 +156,68 @@ export default function PropertyShopsScreen() {
     }
   };
 
+  const handleDeleteShop = (shopId: string, unitNum: string, status: string) => {
+    if (status === 'booked' || status === 'sold') {
+      Alert.alert(
+        'Cannot Delete Unit',
+        `Shop ${unitNum} is currently marked as "${status}". Units with active bookings or sales cannot be deleted to preserve financial audit integrity.`,
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Delete Shop',
+      `Are you sure you want to delete Commercial Shop ${unitNum}? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await propertyService.deleteShop(shopId);
+              showToast(`Shop ${unitNum} deleted`, 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete shop', 'error');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleDeleteAllShops = () => {
+    if (!selectedProjectId) {
+      showToast('Select project first', 'error');
+      return;
+    }
+
+    Alert.alert(
+      'Delete All Commercial Shops',
+      'Are you sure you want to delete all available shops in this project? Booked/Sold units with customer records will be safely preserved.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All Available',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await propertyService.deleteAllUnits({
+                projectId: selectedProjectId,
+                category: 'shop',
+              });
+              showToast(res.message || `Deleted ${res.deletedCount} commercial units`, 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete shops', 'error');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader
@@ -163,20 +225,40 @@ export default function PropertyShopsScreen() {
         subtitle="Retail outlets, showrooms & office spaces"
         large
         right={
-          <Pressable
-            onPress={() => setModalOpen(true)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: colors.primary,
-              paddingHorizontal: 12,
-              paddingVertical: 7,
-              borderRadius: radius.md,
-            }}
-          >
-            <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 4 }} />
-            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>New Shop</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {totalCount > 0 ? (
+              <Pressable
+                onPress={handleDeleteAllShops}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  paddingHorizontal: 10,
+                  paddingVertical: 7,
+                  borderRadius: radius.md,
+                  borderWidth: 1,
+                  borderColor: colors.danger,
+                }}
+              >
+                <Ionicons name="trash-outline" size={15} color={colors.danger} style={{ marginRight: 4 }} />
+                <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>Delete All</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={() => setModalOpen(true)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.primary,
+                paddingHorizontal: 12,
+                paddingVertical: 7,
+                borderRadius: radius.md,
+              }}
+            >
+              <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 4 }} />
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>New Shop</Text>
+            </Pressable>
+          </View>
         }
       />
       <OfflineBanner />
@@ -313,19 +395,38 @@ export default function PropertyShopsScreen() {
                     </Text>
                   </View>
 
-                  {shop.status === 'available' ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {shop.status === 'available' ? (
+                      <Pressable
+                        onPress={() => router.push(`/property/bookings?unitId=${shop._id}&projectId=${selectedProjectId}` as any)}
+                        style={{
+                          backgroundColor: colors.primary,
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: radius.sm,
+                        }}
+                      >
+                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Book Now</Text>
+                      </Pressable>
+                    ) : null}
                     <Pressable
-                      onPress={() => router.push(`/property/bookings?unitId=${shop._id}&projectId=${selectedProjectId}` as any)}
+                      onPress={() => handleDeleteShop(shop._id, shop.unitNumber, shop.status)}
+                      hitSlop={8}
                       style={{
-                        backgroundColor: colors.primary,
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
+                        padding: 6,
                         borderRadius: radius.sm,
+                        backgroundColor: colors.surfaceAlt,
+                        borderWidth: 1,
+                        borderColor: colors.border,
                       }}
                     >
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Book Now</Text>
+                      <Ionicons
+                        name="trash-outline"
+                        size={16}
+                        color={shop.status === 'available' ? colors.danger : colors.textFaint}
+                      />
                     </Pressable>
-                  ) : null}
+                  </View>
                 </View>
 
                 {/* Specs */}
@@ -341,23 +442,43 @@ export default function PropertyShopsScreen() {
                 >
                   <View>
                     <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>Carpet Area</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginTop: 2 }}>
-                      {shop.carpetAreaSqft ? `${shop.carpetAreaSqft} sq.ft.` : '—'}
+                    <Text style={{ fontSize: 13.5, fontWeight: '700', color: colors.text, marginTop: 2 }}>
+                      {shop.carpetAreaSqmt ? `${shop.carpetAreaSqmt} sqmt` : shop.carpetAreaSqft ? `${shop.carpetAreaSqft} sqft` : '—'}
                     </Text>
+                    {shop.carpetAreaSqmt && shop.carpetAreaSqft ? (
+                      <Text style={{ fontSize: 10, color: colors.textFaint }}>{shop.carpetAreaSqft} sqft</Text>
+                    ) : null}
                   </View>
                   <View>
                     <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>Built-Up</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginTop: 2 }}>
-                      {shop.builtUpAreaSqft ? `${shop.builtUpAreaSqft} sq.ft.` : '—'}
+                    <Text style={{ fontSize: 13.5, fontWeight: '700', color: colors.text, marginTop: 2 }}>
+                      {shop.builtUpAreaSqmt ? `${shop.builtUpAreaSqmt} sqmt` : shop.builtUpAreaSqft ? `${shop.builtUpAreaSqft} sqft` : '—'}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>Price</Text>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: colors.primary, marginTop: 2 }}>
-                      {formatCurrency(shop.finalPrice || shop.basePrice)}
+                    <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>
+                      {shop.saleDeedAmount ? 'Sale Deed' : 'Price'}
+                    </Text>
+                    <Text style={{ fontSize: 14.5, fontWeight: '800', color: colors.primary, marginTop: 2 }}>
+                      {formatCurrency(shop.saleDeedAmount || shop.finalPrice || shop.basePrice)}
                     </Text>
                   </View>
                 </View>
+
+                {/* Extra Sqmt tags if present */}
+                {(shop.plotAreaSqmt || shop.balconyAreaSqmt || shop.terraceAreaSqmt) ? (
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    {shop.plotAreaSqmt ? (
+                      <Badge tone="neutral" label={`Plot: ${shop.plotAreaSqmt} sqmt`} />
+                    ) : null}
+                    {shop.balconyAreaSqmt ? (
+                      <Badge tone="neutral" label={`Wash/Balc: ${shop.balconyAreaSqmt} sqmt`} />
+                    ) : null}
+                    {shop.terraceAreaSqmt ? (
+                      <Badge tone="orange" label={`Terrace: ${shop.terraceAreaSqmt} sqmt`} />
+                    ) : null}
+                  </View>
+                ) : null}
               </Card>
             ))}
           </View>

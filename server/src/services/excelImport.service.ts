@@ -23,6 +23,12 @@ export interface ExcelRowParsed {
   clubhouseCharges?: number;
   gstPercentage?: number;
   totalValue?: number;
+  plotAreaSqmt?: number;
+  builtUpAreaSqmt?: number;
+  carpetAreaSqmt?: number;
+  balconyAreaSqmt?: number;
+  terraceAreaSqmt?: number;
+  saleDeedAmount?: number;
   status: 'available' | 'reserved' | 'booked' | 'sold' | 'blocked';
   facing?: string;
   bedrooms?: number;
@@ -163,163 +169,55 @@ function extractRowsFromWorksheet(sheet: XLSX.WorkSheet): Record<string, any>[] 
   return defaultRows;
 }
 
-/** Generates a comprehensive sample XLSX template with all property details (flat & shop) */
+/** Generates a sample XLSX template with the exact real estate inventory columns from image */
 export function generateSampleExcelTemplate(project?: { name?: string; projectCode?: string } | null): Buffer {
-  const pName = project?.name || 'Orchid Heights';
+  const pName = project?.name || 'Santora';
 
   const headers = [
-    'Project',
-    'Tower',
+    'Sr.No.',
+    'Project Name',
+    'Block',
     'Floor',
-    'Unit Number',
-    'Category',
-    'Unit Type',
-    'Carpet Area',
-    'BuiltUp Area',
-    'Super BuiltUp Area',
-    'Bedrooms',
-    'Bathrooms',
-    'Balconies',
-    'Facing',
-    'Rate Per SqFt',
-    'Base Price',
-    'Parking Slot',
-    'Parking Charges',
-    'Clubhouse Charges',
-    'GST %',
-    'Total Value',
-    'Status',
-    'Notes',
+    'Flat No.',
+    'Prop. Plot Area In Sqmt',
+    'Unit Built up Area In Sqmt',
+    'Rera Carpet Area In Sqmt',
+    'Wash & Balcony Area In Sqmt',
+    'Open Terrace In Sqmt',
+    'Sale deed Amount',
   ];
 
   const sampleRows = [
-    [
-      pName,
-      'Tower A',
-      '1st Floor',
-      'A-101',
-      'flat',
-      '2BHK',
-      750,
-      950,
-      1150,
-      2,
-      2,
-      1,
-      'East',
-      5000,
-      4750000,
-      'P-101',
-      150000,
-      50000,
-      5,
-      4950000,
-      'available',
-      'Garden facing 2BHK flat with balcony',
-    ],
-    [
-      pName,
-      'Tower A',
-      '2nd Floor',
-      'A-201',
-      'flat',
-      '3BHK',
-      1050,
-      1350,
-      1600,
-      3,
-      3,
-      2,
-      'North-East',
-      5200,
-      7020000,
-      'P-201 (Covered)',
-      200000,
-      50000,
-      5,
-      7270000,
-      'available',
-      'Corner 3BHK flat, cross-ventilation, premium view',
-    ],
-    [
-      pName,
-      'Commercial Wing',
-      'Ground Floor',
-      'SHOP-01',
-      'shop',
-      'Retail Shop',
-      420,
-      520,
-      600,
-      0,
-      1,
-      0,
-      'Main Road',
-      12000,
-      6240000,
-      'Open-01',
-      100000,
-      0,
-      12,
-      6340000,
-      'available',
-      'High-footfall prime road-facing commercial retail shop',
-    ],
-    [
-      pName,
-      'Commercial Wing',
-      'Ground Floor',
-      'SHOP-02',
-      'shop',
-      'Showroom',
-      650,
-      800,
-      950,
-      0,
-      1,
-      0,
-      'Main Road',
-      12500,
-      10000000,
-      'Covered-C1',
-      150000,
-      0,
-      12,
-      10150000,
-      'available',
-      'Corner commercial showroom with double glass frontage',
-    ],
+    [1, pName, 'A', '1st floor', 'A-101', 25.85, 68.80, 60.35, 4.59, 43.18, 4040000],
+    [2, pName, 'A', '1st floor', 'A-102', 25.94, 69.02, 60.35, 4.59, 109.32, 4400000],
+    [3, pName, 'A', '1st floor', 'A-103', 26.10, 69.44, 60.35, 4.59, 59.73, 4130000],
+    [4, pName, 'A', '2nd floor', 'A-201', 25.85, 68.80, 60.35, 4.59, 0, 3800000],
+    [5, pName, 'A', '2nd floor', 'A-202', 25.94, 69.02, 60.35, 4.59, 0, 3800000],
+    [6, pName, 'A', '2nd floor', 'A-203', 25.94, 69.02, 60.35, 4.59, 0, 3800000],
+    [7, pName, 'A', '2nd floor', 'A-204', 25.85, 68.80, 60.35, 4.59, 1.69, 3810000],
+    [8, pName, 'A', '3rd floor', 'A-301', 25.85, 68.80, 60.35, 4.59, 0, 3800000],
+    [9, pName, 'B', '1st floor', 'B-101', 25.85, 68.80, 60.35, 4.59, 0, 3800000],
+    [10, pName, 'Commercial', 'Ground floor', 'SHOP-01', 18.50, 45.00, 38.20, 0, 0, 5200000],
   ];
 
   const worksheet = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
 
   worksheet['!cols'] = [
-    { wch: 18 }, // Project
-    { wch: 16 }, // Tower
+    { wch: 8 },  // Sr.No.
+    { wch: 18 }, // Project Name
+    { wch: 10 }, // Block
     { wch: 14 }, // Floor
-    { wch: 14 }, // Unit Number
-    { wch: 12 }, // Category
-    { wch: 15 }, // Unit Type
-    { wch: 14 }, // Carpet Area
-    { wch: 14 }, // BuiltUp Area
-    { wch: 18 }, // Super BuiltUp Area
-    { wch: 10 }, // Bedrooms
-    { wch: 10 }, // Bathrooms
-    { wch: 10 }, // Balconies
-    { wch: 14 }, // Facing
-    { wch: 14 }, // Rate Per SqFt
-    { wch: 14 }, // Base Price
-    { wch: 16 }, // Parking Slot
-    { wch: 15 }, // Parking Charges
-    { wch: 17 }, // Clubhouse Charges
-    { wch: 8 },  // GST %
-    { wch: 14 }, // Total Value
-    { wch: 12 }, // Status
-    { wch: 36 }, // Notes
+    { wch: 12 }, // Flat No.
+    { wch: 24 }, // Prop. Plot Area In Sqmt
+    { wch: 26 }, // Unit Built up Area In Sqmt
+    { wch: 26 }, // Rera Carpet Area In Sqmt
+    { wch: 28 }, // Wash & Balcony Area In Sqmt
+    { wch: 22 }, // Open Terrace In Sqmt
+    { wch: 18 }, // Sale deed Amount
   ];
 
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Property Units Inventory');
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
   return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 }
 
@@ -461,10 +359,17 @@ export async function parseAndPreviewExcel(
     const facing = String(get('facing', 'direction', 'orientation') || '').trim() || undefined;
     const notes = String(get('notes', 'remarks', 'description', 'comments') || '').trim() || undefined;
 
-    // 6. Comprehensive Area Parsing & Fallback
+    // 6. Specific Sqmt Fields matching real estate inventory image
+    const plotAreaSqmt = parseNumber(get('propplotareainsqmt', 'plotareainsqmt', 'plotareasqmt', 'propplotarea', 'plotarea', 'plotareainsqm'));
+    const builtUpAreaSqmt = parseNumber(get('unitbuiltupareainsqmt', 'builtupareainsqmt', 'builtupareasqmt', 'unitbuiltuparea', 'bbuiltupareasqmt', 'builtupareasqm'));
+    const carpetAreaSqmt = parseNumber(get('reracarpetareainsqmt', 'carpetareainsqmt', 'reracarpetarea', 'carpetareasqmt', 'reracarpet', 'carpetareasqm'));
+    const balconyAreaSqmt = parseNumber(get('washbalconyareainsqmt', 'washandbalconyareainsqmt', 'washbalconyarea', 'washbalcony', 'balconyareainsqmt', 'balconyareasqmt', 'washareasqmt'));
+    const terraceAreaSqmt = parseNumber(get('openterraceinsqmt', 'openterraceareasqmt', 'openterrace', 'terraceareainsqmt', 'terraceareasqmt', 'terracesqmt'));
+    const saleDeedAmount = parseNumber(get('saledeedamount', 'saledeedamt', 'saledeedvalue', 'saledeed', 'deedamount', 'saledeedamountinrs'));
+
+    // 7. Comprehensive Area Parsing & Fallback
     const carpetArea = parseNumber(get(
-      'carpetarea', 'carpet', 'reracarpet', 'reracarpetarea', 'ca',
-      'netcarpet', 'netcarpetarea', 'carpetareasqft', 'carpetsqft', 'reraarea'
+      'carpetarea', 'carpet', 'ca', 'netcarpet', 'netcarpetarea', 'carpetareasqft', 'carpetsqft', 'reraarea'
     ));
 
     const builtUpArea = parseNumber(get(
@@ -483,9 +388,9 @@ export async function parseAndPreviewExcel(
     const sqYdArea = parseNumber(get('sqyd', 'sqyard', 'areasqyd', 'areasqyard', 'varg', 'vargvaar'), 9);
     const sqMtArea = parseNumber(get('sqmt', 'sqmeter', 'sqmtr', 'areasqmt', 'areasqm', 'areasqmtr'), 10.764);
 
-    let resolvedArea = superBuiltupArea || sqYdArea || sqMtArea || builtUpArea || 0;
-    let resolvedCarpet = carpetArea;
-    let resolvedBuiltUp = builtUpArea;
+    let resolvedCarpet = carpetArea || (carpetAreaSqmt > 0 ? Math.round(carpetAreaSqmt * 10.7639) : 0);
+    let resolvedBuiltUp = builtUpArea || (builtUpAreaSqmt > 0 ? Math.round(builtUpAreaSqmt * 10.7639) : 0);
+    let resolvedArea = superBuiltupArea || sqYdArea || sqMtArea || resolvedBuiltUp || resolvedCarpet || 0;
 
     // Cross-infer missing area measurements
     if (!resolvedArea && resolvedCarpet > 0) {
@@ -498,9 +403,12 @@ export async function parseAndPreviewExcel(
       resolvedCarpet = Math.round(resolvedArea * 0.75);
     }
 
-    // 7. Rates, Pricing, and Extra Charges
+    // 8. Rates, Pricing, and Extra Charges
     const rate = parseNumber(get('ratepersqft', 'rate', 'ratesqft', 'sqftrate', 'unitrate', 'base_rate'));
     let basePrice = parseNumber(get('baseprice', 'price', 'cost', 'unitprice', 'basecost'));
+    if (saleDeedAmount > 0 && basePrice <= 0) {
+      basePrice = saleDeedAmount;
+    }
     const parkingSlot = String(get('parkingslot', 'parking', 'parkingspace', 'slot') || '').trim() || undefined;
     const parkingCharges = parseNumber(get('parkingcharges', 'parkingcost', 'parkingfee', 'parkingrate'));
     const clubhouseCharges = parseNumber(get('clubhousecharges', 'clubhouse', 'amenities', 'amenitiescharges'));
@@ -512,6 +420,9 @@ export async function parseAndPreviewExcel(
     }
 
     let totalValue = parseNumber(get('totalvalue', 'totalprice', 'totalamount', 'finalprice', 'grandtotal'));
+    if (saleDeedAmount > 0 && totalValue <= 0) {
+      totalValue = saleDeedAmount;
+    }
     if (totalValue <= 0) {
       totalValue = basePrice + parkingCharges + clubhouseCharges;
     }
@@ -566,7 +477,7 @@ export async function parseAndPreviewExcel(
       ? (rawStatus as any)
       : 'available';
 
-    // 8. Row Validations
+    // 9. Row Validations
     if (!matchedProject) {
       errors.push({
         rowNumber,
@@ -622,6 +533,12 @@ export async function parseAndPreviewExcel(
       carpetArea: resolvedCarpet,
       builtUpArea: resolvedBuiltUp,
       superBuiltupArea: resolvedArea,
+      plotAreaSqmt: plotAreaSqmt || undefined,
+      builtUpAreaSqmt: builtUpAreaSqmt || undefined,
+      carpetAreaSqmt: carpetAreaSqmt || undefined,
+      balconyAreaSqmt: balconyAreaSqmt || undefined,
+      terraceAreaSqmt: terraceAreaSqmt || undefined,
+      saleDeedAmount: saleDeedAmount || undefined,
       rate: rate || Math.round(basePrice / (resolvedBuiltUp || resolvedArea || 1)),
       price: totalValue,
       basePrice,
@@ -761,6 +678,12 @@ export async function executeExcelBulkImport(
       carpetAreaSqft: carpetArea,
       builtUpAreaSqft: builtUpArea,
       superBuiltupAreaSqft: unitArea,
+      plotAreaSqmt: row.plotAreaSqmt || null,
+      builtUpAreaSqmt: row.builtUpAreaSqmt || null,
+      carpetAreaSqmt: row.carpetAreaSqmt || null,
+      balconyAreaSqmt: row.balconyAreaSqmt || null,
+      terraceAreaSqmt: row.terraceAreaSqmt || null,
+      saleDeedAmount: row.saleDeedAmount || null,
       bedrooms: row.bedrooms !== undefined ? row.bedrooms : (row.category === 'shop' ? 0 : null),
       bathrooms: row.bathrooms !== undefined ? row.bathrooms : (row.category === 'shop' ? 1 : null),
       balconies: row.balconies !== undefined ? row.balconies : 0,

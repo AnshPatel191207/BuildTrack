@@ -103,6 +103,28 @@ router.post(
   asyncHandler(property.createShop),
 );
 
+// Inventory Deletion (Flats, Shops & Bulk Delete)
+router.delete(
+  '/units/:id',
+  requirePermission('canManageUnits'),
+  asyncHandler(property.deleteUnit),
+);
+router.delete(
+  '/flats/:id',
+  requirePermission('canManageUnits', 'canManageFlats'),
+  asyncHandler(property.deleteUnit),
+);
+router.delete(
+  '/shops/:id',
+  requirePermission('canManageUnits', 'canManageShops'),
+  asyncHandler(property.deleteUnit),
+);
+router.post(
+  '/units/delete-all',
+  requirePermission('canManageUnits'),
+  asyncHandler(property.deleteAllUnits),
+);
+
 // ── Customers & 360° Profile ──────────────────────────────────────
 router.get('/customers', validate({ query: customerQuerySchema }), asyncHandler(customers.listCustomers));
 router.post(

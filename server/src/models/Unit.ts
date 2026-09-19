@@ -16,6 +16,12 @@ export interface UnitDocument extends mongoose.HydratedDocument<any> {
   carpetAreaSqft: number;
   builtUpAreaSqft: number;
   superBuiltupAreaSqft: number;
+  plotAreaSqmt?: number;
+  builtUpAreaSqmt?: number;
+  carpetAreaSqmt?: number;
+  balconyAreaSqmt?: number;
+  terraceAreaSqmt?: number;
+  saleDeedAmount?: number;
   bedrooms?: number | null;
   bathrooms?: number | null;
   balconies?: number;
@@ -56,6 +62,12 @@ const unitSchema = new Schema<UnitDocument>(
     carpetAreaSqft: { type: Number, default: 0, min: 0 },
     builtUpAreaSqft: { type: Number, default: 0, min: 0 },
     superBuiltupAreaSqft: { type: Number, default: 0, min: 0 },
+    plotAreaSqmt: { type: Number, default: 0 },
+    builtUpAreaSqmt: { type: Number, default: 0 },
+    carpetAreaSqmt: { type: Number, default: 0 },
+    balconyAreaSqmt: { type: Number, default: 0 },
+    terraceAreaSqmt: { type: Number, default: 0 },
+    saleDeedAmount: { type: Number, default: 0 },
     bedrooms: { type: Number, default: null },
     bathrooms: { type: Number, default: null },
     balconies: { type: Number, default: 0 },

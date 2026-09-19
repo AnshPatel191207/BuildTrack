@@ -168,6 +168,27 @@ export default function PropertyBookingDetailScreen() {
     }
   };
 
+  const handleGenerateReceipt = async () => {
+    if (!booking) return;
+    const payment = booking.payments && booking.payments.length > 0 ? booking.payments[0] : null;
+    if (!payment) {
+      router.push(`/property/payments?bookingId=${booking._id}&customerId=${(booking.customerId as any)?._id}` as any);
+      return;
+    }
+    setGeneratingDoc(true);
+    try {
+      const res = await propertyService.generateReceipt(payment._id);
+      showToast(`Receipt ${res?.receiptNumber || ''} generated!`, 'success');
+      const url = propertyService.getReceiptPdfUrl(payment._id);
+      void Linking.openURL(url);
+      void reload();
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Failed to generate receipt', 'error');
+    } finally {
+      setGeneratingDoc(false);
+    }
+  };
+
   const handleSaveSchedule = async () => {
     if (!id) return;
     setSavingSchedule(true);
@@ -368,6 +389,13 @@ export default function PropertyBookingDetailScreen() {
                   />
                 </View>
               </View>
+
+              <Button
+                label={generatingDoc ? 'Generating...' : 'Receipt (Token / Advance Payment PDF)'}
+                variant="secondary"
+                onPress={handleGenerateReceipt}
+                disabled={generatingDoc}
+              />
             </Card>
 
             {/* Installment Payment Milestones */}

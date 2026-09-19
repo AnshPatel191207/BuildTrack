@@ -28,6 +28,22 @@ export default function PropertyPaymentsScreen() {
 
   const [modalOpen, setModalOpen] = useState(Boolean(params.bookingId));
   const [submitting, setSubmitting] = useState(false);
+  const [generatingReceiptId, setGeneratingReceiptId] = useState<string | null>(null);
+
+  const handleGenerateReceipt = async (paymentId: string) => {
+    setGeneratingReceiptId(paymentId);
+    try {
+      const res = await propertyService.generateReceipt(paymentId);
+      showToast(`Receipt ${res?.receiptNumber || ''} generated!`, 'success');
+      void reload();
+      const url = propertyService.getReceiptPdfUrl(paymentId);
+      void Linking.openURL(url);
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Failed to generate receipt', 'error');
+    } finally {
+      setGeneratingReceiptId(null);
+    }
+  };
 
   // Form State
   const [selectedBookingId, setSelectedBookingId] = useState(params.bookingId || '');
@@ -252,10 +268,8 @@ export default function PropertyPaymentsScreen() {
                   }}
                 >
                   <Pressable
-                    onPress={() => {
-                      const url = propertyService.getReceiptPdfUrl(p._id);
-                      void Linking.openURL(url);
-                    }}
+                    onPress={() => handleGenerateReceipt(p._id)}
+                    disabled={generatingReceiptId === p._id}
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
@@ -265,8 +279,34 @@ export default function PropertyPaymentsScreen() {
                       borderRadius: radius.sm,
                     }}
                   >
-                    <Ionicons name="download-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Receipt PDF</Text>
+                    <Ionicons name="receipt-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>
+                      {generatingReceiptId === p._id
+                        ? 'Generating...'
+                        : p.receiptNumber
+                          ? 'Regenerate Receipt'
+                          : 'Generate Receipt'}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => {
+                      const url = propertyService.getReceiptPdfUrl(p._id);
+                      void Linking.openURL(url);
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: colors.surfaceAlt,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: radius.sm,
+                    }}
+                  >
+                    <Ionicons name="download-outline" size={14} color={colors.text} style={{ marginRight: 4 }} />
+                    <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>PDF</Text>
                   </Pressable>
                 </View>
               </Card>

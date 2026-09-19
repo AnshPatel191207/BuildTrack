@@ -14,99 +14,91 @@ import { propertyService } from '@/services/propertyService';
 import { showToast } from '@/components/ui/Toast';
 import type { PropertyProject, ExcelImportPreview } from '@/types';
 
-// Built-in starter inventory for instant dry-run testing
+// Built-in starter inventory matching exact 11 columns from user's Excel file
 const DEMO_EXCEL_ROWS = [
   {
-    tower: 'Tower A',
-    floor: '1st Floor',
+    rowNumber: 2,
+    projectName: 'Santora',
+    towerName: 'A',
+    floorName: '1st floor',
     unitNumber: 'A-101',
     category: 'flat',
-    unitType: '2BHK',
-    bedrooms: 2,
-    bathrooms: 2,
-    balconies: 1,
-    carpetAreaSqft: 750,
-    builtUpAreaSqft: 950,
-    superBuiltupAreaSqft: 1150,
-    ratePerSqft: 5000,
-    basePrice: 4750000,
-    parkingSlot: 'P-101',
-    parkingCharges: 150000,
-    clubhouseCharges: 50000,
-    gstPercentage: 5,
-    totalValue: 4950000,
+    unitType: 'Residential Flat',
+    plotAreaSqmt: 25.85,
+    builtUpAreaSqmt: 68.80,
+    carpetAreaSqmt: 60.35,
+    balconyAreaSqmt: 4.59,
+    terraceAreaSqmt: 43.18,
+    saleDeedAmount: 4040000,
+    carpetArea: 649,
+    builtUpArea: 740,
+    superBuiltupArea: 740,
+    basePrice: 4040000,
+    totalValue: 4040000,
     status: 'available',
-    facing: 'East',
-    notes: 'Garden facing 2BHK flat',
   },
   {
-    tower: 'Tower A',
-    floor: '2nd Floor',
+    rowNumber: 3,
+    projectName: 'Santora',
+    towerName: 'A',
+    floorName: '1st floor',
+    unitNumber: 'A-102',
+    category: 'flat',
+    unitType: 'Residential Flat',
+    plotAreaSqmt: 25.94,
+    builtUpAreaSqmt: 69.02,
+    carpetAreaSqmt: 60.35,
+    balconyAreaSqmt: 4.59,
+    terraceAreaSqmt: 109.32,
+    saleDeedAmount: 4400000,
+    carpetArea: 649,
+    builtUpArea: 743,
+    superBuiltupArea: 743,
+    basePrice: 4400000,
+    totalValue: 4400000,
+    status: 'available',
+  },
+  {
+    rowNumber: 4,
+    projectName: 'Santora',
+    towerName: 'A',
+    floorName: '2nd floor',
     unitNumber: 'A-201',
     category: 'flat',
-    unitType: '3BHK',
-    bedrooms: 3,
-    bathrooms: 3,
-    balconies: 2,
-    carpetAreaSqft: 1050,
-    builtUpAreaSqft: 1350,
-    superBuiltupAreaSqft: 1600,
-    ratePerSqft: 5200,
-    basePrice: 7020000,
-    parkingSlot: 'P-201 (Covered)',
-    parkingCharges: 200000,
-    clubhouseCharges: 50000,
-    gstPercentage: 5,
-    totalValue: 7270000,
+    unitType: 'Residential Flat',
+    plotAreaSqmt: 25.85,
+    builtUpAreaSqmt: 68.80,
+    carpetAreaSqmt: 60.35,
+    balconyAreaSqmt: 4.59,
+    terraceAreaSqmt: 0,
+    saleDeedAmount: 3800000,
+    carpetArea: 649,
+    builtUpArea: 740,
+    superBuiltupArea: 740,
+    basePrice: 3800000,
+    totalValue: 3800000,
     status: 'available',
-    facing: 'North-East',
-    notes: 'Corner 3BHK flat with cross-ventilation',
   },
   {
-    tower: 'Commercial Wing',
-    floor: 'Ground Floor',
+    rowNumber: 5,
+    projectName: 'Santora',
+    towerName: 'Commercial',
+    floorName: 'Ground floor',
     unitNumber: 'SHOP-01',
     category: 'shop',
-    unitType: 'Retail Shop',
-    bedrooms: 0,
-    bathrooms: 1,
-    balconies: 0,
-    carpetAreaSqft: 420,
-    builtUpAreaSqft: 520,
-    superBuiltupAreaSqft: 600,
-    ratePerSqft: 12000,
-    basePrice: 6240000,
-    parkingSlot: 'Open-01',
-    parkingCharges: 100000,
-    clubhouseCharges: 0,
-    gstPercentage: 12,
-    totalValue: 6340000,
+    unitType: 'Commercial Shop',
+    plotAreaSqmt: 18.50,
+    builtUpAreaSqmt: 45.00,
+    carpetAreaSqmt: 38.20,
+    balconyAreaSqmt: 0,
+    terraceAreaSqmt: 0,
+    saleDeedAmount: 5200000,
+    carpetArea: 411,
+    builtUpArea: 484,
+    superBuiltupArea: 484,
+    basePrice: 5200000,
+    totalValue: 5200000,
     status: 'available',
-    facing: 'Main Road',
-    notes: 'High-footfall prime road-facing commercial retail shop',
-  },
-  {
-    tower: 'Commercial Wing',
-    floor: 'Ground Floor',
-    unitNumber: 'SHOP-02',
-    category: 'shop',
-    unitType: 'Showroom',
-    bedrooms: 0,
-    bathrooms: 1,
-    balconies: 0,
-    carpetAreaSqft: 650,
-    builtUpAreaSqft: 800,
-    superBuiltupAreaSqft: 950,
-    ratePerSqft: 12500,
-    basePrice: 10000000,
-    parkingSlot: 'Covered-C1',
-    parkingCharges: 150000,
-    clubhouseCharges: 0,
-    gstPercentage: 12,
-    totalValue: 10150000,
-    status: 'available',
-    facing: 'Main Road',
-    notes: 'Corner commercial showroom with double glass frontage',
   },
 ];
 
@@ -378,28 +370,17 @@ export default function PropertyExcelImportScreen() {
               {/* Column list */}
               <View style={{ gap: 8 }}>
                 {[
-                  { col: 'Project', req: 'Optional', desc: 'Project name (e.g. Orchid Heights). Uses selected project if omitted.' },
-                  { col: 'Tower', req: 'Required', desc: 'Tower / Wing / Block name (e.g. Tower A, Wing B, Commercial Wing).' },
-                  { col: 'Floor', req: 'Required', desc: 'Floor level or name (e.g. 1st Floor, Ground Floor, 2, 10).' },
-                  { col: 'Unit Number', req: 'Required', desc: 'Flat No or Shop No (e.g. A-101, SHOP-01, 204).' },
-                  { col: 'Category', req: 'Required', desc: '"flat" for residential, "shop" for commercial (also office, penthouse).' },
-                  { col: 'Unit Type', req: 'Required', desc: 'Specification (e.g. 2BHK, 3BHK, Retail Shop, Showroom).' },
-                  { col: 'Carpet Area', req: 'Required', desc: 'RERA Carpet Area in SqFt (e.g. 750 for flat, 420 for shop).' },
-                  { col: 'BuiltUp Area', req: 'Optional', desc: 'Built-Up Area in SqFt (e.g. 950). Auto-estimated if omitted.' },
-                  { col: 'Super BuiltUp Area', req: 'Optional', desc: 'Super Built-Up Area in SqFt (e.g. 1150).' },
-                  { col: 'Bedrooms', req: 'Optional', desc: 'Bedroom count (e.g. 2, 3 for flats; 0 for shops).' },
-                  { col: 'Bathrooms', req: 'Optional', desc: 'Bathroom count (e.g. 2 for flats; 1 for shops).' },
-                  { col: 'Balconies', req: 'Optional', desc: 'Balcony count (e.g. 1, 2 for flats; 0 for shops).' },
-                  { col: 'Facing', req: 'Optional', desc: 'Orientation (e.g. East, North-East, Main Road, Garden Facing).' },
-                  { col: 'Rate Per SqFt', req: 'Optional', desc: 'Rate in ₹ per SqFt (e.g. 5000 for flat, 12000 for shop).' },
-                  { col: 'Base Price', req: 'Required', desc: 'Base cost in ₹ (e.g. 4750000). Auto-calculated if Rate is given.' },
-                  { col: 'Parking Slot', req: 'Optional', desc: 'Parking identifier (e.g. P-101, Covered-C1, None).' },
-                  { col: 'Parking Charges', req: 'Optional', desc: 'Parking cost in ₹ (e.g. 150000).' },
-                  { col: 'Clubhouse Charges', req: 'Optional', desc: 'Amenities fee in ₹ (e.g. 50000).' },
-                  { col: 'GST %', req: 'Optional', desc: 'GST rate (default 5% for flats, 12% for shops).' },
-                  { col: 'Total Value', req: 'Optional', desc: 'Total unit cost in ₹. Auto-sums Base + Parking + Clubhouse.' },
-                  { col: 'Status', req: 'Optional', desc: '"available" (default), "reserved", "booked", "sold", "blocked".' },
-                  { col: 'Notes', req: 'Optional', desc: 'Custom remarks, elevation or view details.' },
+                  { col: '1. Sr.No.', req: 'Optional', desc: 'Serial number (e.g. 1, 2, 3).' },
+                  { col: '2. Project Name', req: 'Optional', desc: 'Project name (e.g. Santora). Uses selected project if omitted.' },
+                  { col: '3. Block', req: 'Required', desc: 'Block / Tower / Wing name (e.g. A, B, Commercial).' },
+                  { col: '4. Floor', req: 'Required', desc: 'Floor level (e.g. 1st floor, 2nd floor, Ground floor).' },
+                  { col: '5. Flat No.', req: 'Required', desc: 'Unit / Flat / Shop number (e.g. A-101, A-102, SHOP-01).' },
+                  { col: '6. Prop. Plot Area In Sqmt', req: 'Optional', desc: 'Proportionate Plot Area in Sq. Meters (e.g. 25.85).' },
+                  { col: '7. Unit Built up Area In Sqmt', req: 'Optional', desc: 'Unit Built-up Area in Sq. Meters (e.g. 68.80). Auto-converted to SqFt.' },
+                  { col: '8. Rera Carpet Area In Sqmt', req: 'Required', desc: 'RERA Carpet Area in Sq. Meters (e.g. 60.35). Auto-converted to SqFt.' },
+                  { col: '9. Wash & Balcony Area In Sqmt', req: 'Optional', desc: 'Wash & Balcony Area in Sq. Meters (e.g. 4.59).' },
+                  { col: '10. Open Terrace In Sqmt', req: 'Optional', desc: 'Open Terrace Area in Sq. Meters (e.g. 43.18, 109.32).' },
+                  { col: '11. Sale deed Amount', req: 'Required', desc: 'Sale deed Amount in ₹ (e.g. 40,40,000, 44,00,000). Sets unit price.' },
                 ].map((f) => (
                   <View
                     key={f.col}
@@ -711,12 +692,44 @@ export default function PropertyExcelImportScreen() {
                           <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
                             {r.towerName || r.tower} • {r.floorName || r.floor}
                           </Text>
-                          <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
-                            Carpet: {r.carpetArea || r.carpetAreaSqft || '-'} sqft
-                          </Text>
-                          <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
-                            BuiltUp: {r.builtUpArea || r.builtUpAreaSqft || r.area || '-'} sqft
-                          </Text>
+                          {r.carpetAreaSqmt ? (
+                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
+                              Carpet: {r.carpetAreaSqmt} sqmt ({r.carpetArea || Math.round(r.carpetAreaSqmt * 10.7639)} sqft)
+                            </Text>
+                          ) : (
+                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
+                              Carpet: {r.carpetArea || r.carpetAreaSqft || '-'} sqft
+                            </Text>
+                          )}
+                          {r.builtUpAreaSqmt ? (
+                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
+                              BuiltUp: {r.builtUpAreaSqmt} sqmt
+                            </Text>
+                          ) : r.builtUpArea || r.builtUpAreaSqft ? (
+                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
+                              BuiltUp: {r.builtUpArea || r.builtUpAreaSqft} sqft
+                            </Text>
+                          ) : null}
+                          {r.plotAreaSqmt ? (
+                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
+                              Plot: {r.plotAreaSqmt} sqmt
+                            </Text>
+                          ) : null}
+                          {r.balconyAreaSqmt ? (
+                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
+                              Wash/Balc: {r.balconyAreaSqmt} sqmt
+                            </Text>
+                          ) : null}
+                          {r.terraceAreaSqmt ? (
+                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
+                              Terrace: {r.terraceAreaSqmt} sqmt
+                            </Text>
+                          ) : null}
+                          {r.saleDeedAmount ? (
+                            <Text style={{ fontSize: 11.5, color: colors.primary, fontWeight: '700' }}>
+                              Sale Deed: ₹{Number(r.saleDeedAmount).toLocaleString('en-IN')}
+                            </Text>
+                          ) : null}
                           {r.facing ? (
                             <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
                               Facing: {r.facing}

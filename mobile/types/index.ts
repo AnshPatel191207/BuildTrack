@@ -470,8 +470,14 @@ export interface Unit {
   unitNumber: string;
   unitType: string;
   areaSqft: number;
+  carpetAreaSqmt?: number | null;
   carpetAreaSqft: number;
+  builtUpAreaSqmt?: number | null;
   builtUpAreaSqft?: number;
+  plotAreaSqmt?: number | null;
+  balconyAreaSqmt?: number | null;
+  terraceAreaSqmt?: number | null;
+  saleDeedAmount?: number | null;
   superBuiltupAreaSqft: number;
   bedrooms?: number | null;
   bathrooms?: number | null;
@@ -1139,7 +1145,10 @@ export interface PropertyCustomer extends Customer {
   stage?: string;
 }
 
-export type PropertyBooking = Booking;
+export type PropertyBooking = Booking & {
+  payments?: PropertyPayment[];
+  summary?: any;
+};
 export type PropertyPayment = Payment;
 
 export interface Customer360Response {

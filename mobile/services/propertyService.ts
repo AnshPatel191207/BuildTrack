@@ -117,6 +117,29 @@ export const propertyService = {
     return res.data.data;
   },
 
+  deleteFlat: async (flatId: string) => {
+    const res = await api.delete<ApiResponse<{ message: string }>>(`/property/flats/${flatId}`);
+    return res.data.data;
+  },
+
+  deleteShop: async (shopId: string) => {
+    const res = await api.delete<ApiResponse<{ message: string }>>(`/property/shops/${shopId}`);
+    return res.data.data;
+  },
+
+  deleteUnit: async (unitId: string) => {
+    const res = await api.delete<ApiResponse<{ message: string }>>(`/property/units/${unitId}`);
+    return res.data.data;
+  },
+
+  deleteAllUnits: async (filters: { projectId?: string; category?: 'flat' | 'shop' | 'all' }) => {
+    const res = await api.post<ApiResponse<{ deletedCount: number; protectedCount: number; message: string }>>(
+      '/property/units/delete-all',
+      filters,
+    );
+    return res.data.data;
+  },
+
   // ── Customers & 360° Profile ───────────────────────────────────
   listCustomers: (filters: { search?: string; stage?: string } = {}) =>
     api
@@ -224,6 +247,11 @@ export const propertyService = {
     notes?: string;
   }) => {
     const res = await api.post<ApiResponse<PropertyPayment>>('/property/payments', input);
+    return res.data.data;
+  },
+
+  generateReceipt: async (paymentId: string) => {
+    const res = await api.post<ApiResponse<any>>(`/property/payments/${paymentId}/receipt`);
     return res.data.data;
   },
 

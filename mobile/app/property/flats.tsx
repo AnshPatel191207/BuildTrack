@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshControl, ScrollView, Text, View, Pressable, Modal } from 'react-native';
+import { RefreshControl, ScrollView, Text, View, Pressable, Modal, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -175,6 +175,68 @@ export default function PropertyFlatsScreen() {
     }
   };
 
+  const handleDeleteFlat = (flatId: string, unitNum: string, status: string) => {
+    if (status === 'booked' || status === 'sold') {
+      Alert.alert(
+        'Cannot Delete Unit',
+        `Flat ${unitNum} is currently marked as "${status}". Units with active bookings or sales cannot be deleted to preserve financial audit integrity.`,
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Delete Flat',
+      `Are you sure you want to delete Flat ${unitNum}? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await propertyService.deleteFlat(flatId);
+              showToast(`Flat ${unitNum} deleted`, 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete flat', 'error');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleDeleteAllFlats = () => {
+    if (!selectedProjectId) {
+      showToast('Select project first', 'error');
+      return;
+    }
+
+    Alert.alert(
+      'Delete All Flats',
+      'Are you sure you want to delete all available flats in this project? Booked/Sold units with customer records will be safely preserved.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All Available',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await propertyService.deleteAllUnits({
+                projectId: selectedProjectId,
+                category: 'flat',
+              });
+              showToast(res.message || `Deleted ${res.deletedCount} flats`, 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete flats', 'error');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader
@@ -182,20 +244,40 @@ export default function PropertyFlatsScreen() {
         subtitle="Residential inventory, carpet area & pricing"
         large
         right={
-          <Pressable
-            onPress={() => setModalOpen(true)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: colors.primary,
-              paddingHorizontal: 12,
-              paddingVertical: 7,
-              borderRadius: radius.md,
-            }}
-          >
-            <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 4 }} />
-            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>New Flat</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {totalCount > 0 ? (
+              <Pressable
+                onPress={handleDeleteAllFlats}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  paddingHorizontal: 10,
+                  paddingVertical: 7,
+                  borderRadius: radius.md,
+                  borderWidth: 1,
+                  borderColor: colors.danger,
+                }}
+              >
+                <Ionicons name="trash-outline" size={15} color={colors.danger} style={{ marginRight: 4 }} />
+                <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>Delete All</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={() => setModalOpen(true)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.primary,
+                paddingHorizontal: 12,
+                paddingVertical: 7,
+                borderRadius: radius.md,
+              }}
+            >
+              <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 4 }} />
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>New Flat</Text>
+            </Pressable>
+          </View>
         }
       />
       <OfflineBanner />
@@ -376,19 +458,38 @@ export default function PropertyFlatsScreen() {
                     </Text>
                   </View>
 
-                  {flat.status === 'available' ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {flat.status === 'available' ? (
+                      <Pressable
+                        onPress={() => router.push(`/property/bookings?unitId=${flat._id}&projectId=${selectedProjectId}` as any)}
+                        style={{
+                          backgroundColor: colors.primary,
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: radius.sm,
+                        }}
+                      >
+                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Book Now</Text>
+                      </Pressable>
+                    ) : null}
                     <Pressable
-                      onPress={() => router.push(`/property/bookings?unitId=${flat._id}&projectId=${selectedProjectId}` as any)}
+                      onPress={() => handleDeleteFlat(flat._id, flat.unitNumber, flat.status)}
+                      hitSlop={8}
                       style={{
-                        backgroundColor: colors.primary,
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
+                        padding: 6,
                         borderRadius: radius.sm,
+                        backgroundColor: colors.surfaceAlt,
+                        borderWidth: 1,
+                        borderColor: colors.border,
                       }}
                     >
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Book Now</Text>
+                      <Ionicons
+                        name="trash-outline"
+                        size={16}
+                        color={flat.status === 'available' ? colors.danger : colors.textFaint}
+                      />
                     </Pressable>
-                  ) : null}
+                  </View>
                 </View>
 
                 {/* Specs */}
@@ -404,23 +505,43 @@ export default function PropertyFlatsScreen() {
                 >
                   <View>
                     <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>Carpet Area</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginTop: 2 }}>
-                      {flat.carpetAreaSqft ? `${flat.carpetAreaSqft} sq.ft.` : '—'}
+                    <Text style={{ fontSize: 13.5, fontWeight: '700', color: colors.text, marginTop: 2 }}>
+                      {flat.carpetAreaSqmt ? `${flat.carpetAreaSqmt} sqmt` : flat.carpetAreaSqft ? `${flat.carpetAreaSqft} sqft` : '—'}
                     </Text>
+                    {flat.carpetAreaSqmt && flat.carpetAreaSqft ? (
+                      <Text style={{ fontSize: 10, color: colors.textFaint }}>{flat.carpetAreaSqft} sqft</Text>
+                    ) : null}
                   </View>
                   <View>
                     <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>Built-Up</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginTop: 2 }}>
-                      {flat.builtUpAreaSqft ? `${flat.builtUpAreaSqft} sq.ft.` : '—'}
+                    <Text style={{ fontSize: 13.5, fontWeight: '700', color: colors.text, marginTop: 2 }}>
+                      {flat.builtUpAreaSqmt ? `${flat.builtUpAreaSqmt} sqmt` : flat.builtUpAreaSqft ? `${flat.builtUpAreaSqft} sqft` : '—'}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>Price</Text>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: colors.primary, marginTop: 2 }}>
-                      {formatCurrency(flat.finalPrice || flat.basePrice)}
+                    <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>
+                      {flat.saleDeedAmount ? 'Sale Deed' : 'Price'}
+                    </Text>
+                    <Text style={{ fontSize: 14.5, fontWeight: '800', color: colors.primary, marginTop: 2 }}>
+                      {formatCurrency(flat.saleDeedAmount || flat.finalPrice || flat.basePrice)}
                     </Text>
                   </View>
                 </View>
+
+                {/* Extra Sqmt tags if present */}
+                {(flat.plotAreaSqmt || flat.balconyAreaSqmt || flat.terraceAreaSqmt) ? (
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    {flat.plotAreaSqmt ? (
+                      <Badge tone="neutral" label={`Plot: ${flat.plotAreaSqmt} sqmt`} />
+                    ) : null}
+                    {flat.balconyAreaSqmt ? (
+                      <Badge tone="neutral" label={`Wash/Balc: ${flat.balconyAreaSqmt} sqmt`} />
+                    ) : null}
+                    {flat.terraceAreaSqmt ? (
+                      <Badge tone="orange" label={`Terrace: ${flat.terraceAreaSqmt} sqmt`} />
+                    ) : null}
+                  </View>
+                ) : null}
               </Card>
             ))}
           </View>

@@ -434,6 +434,114 @@ export async function createShop(req: Req, res: Response) {
   sendCreated(res, shop, `Shop ${shop.unitNumber} created.`);
 }
 
+export async function deleteUnit(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  if (!hasPermission(user.role, 'canManageUnits') && !hasPermission(user.role, 'canManageFlats') && !hasPermission(user.role, 'canManageShops')) {
+    throw ApiError.forbidden('You do not have permission to delete inventory units.');
+  }
+
+  const { id } = req.params;
+  const unit = await Unit.findOne({ _id: id, companyId: user.companyId });
+  if (!unit) {
+    throw ApiError.notFound('Unit not found.');
+  }
+
+  if (['booked', 'sold'].includes(unit.status) || unit.currentBookingId) {
+    throw ApiError.badRequest(`Cannot delete unit ${unit.unitNumber} because it is marked as ${unit.status}. Cancel the booking first.`);
+  }
+
+  const activeBooking = await Booking.findOne({
+    unitId: unit._id,
+    companyId: user.companyId,
+    status: { $ne: 'cancelled' },
+  });
+  if (activeBooking) {
+    throw ApiError.badRequest(`Cannot delete unit ${unit.unitNumber} because it is linked to active booking ${activeBooking.bookingNumber}.`);
+  }
+
+  await Unit.deleteOne({ _id: unit._id });
+
+  await logAudit(req, {
+    action: 'delete',
+    module: unit.category === 'shop' ? 'shops' : 'flats',
+    entityType: 'unit',
+    entityId: unit._id,
+    description: `${user.name} deleted ${unit.category === 'shop' ? 'Shop' : 'Flat'} ${unit.unitNumber}`,
+  });
+
+  sendSuccess(res, { deleted: true, unitNumber: unit.unitNumber }, `${unit.category === 'shop' ? 'Shop' : 'Flat'} ${unit.unitNumber} deleted successfully.`);
+}
+
+export async function deleteAllUnits(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  if (!hasPermission(user.role, 'canManageUnits') && !hasPermission(user.role, 'canManageFlats') && !hasPermission(user.role, 'canManageShops')) {
+    throw ApiError.forbidden('You do not have permission to delete inventory units.');
+  }
+
+  const { projectId, category } = req.body || {};
+  if (!projectId) {
+    throw ApiError.badRequest('Project ID is required.');
+  }
+  await assertProjectAccess(user, projectId);
+
+  const filter: Record<string, unknown> = {
+    companyId: user.companyId,
+    projectId,
+  };
+
+  if (category && category !== 'all') {
+    if (category === 'shop') {
+      filter.category = { $in: ['shop', 'office'] };
+    } else {
+      filter.category = category;
+    }
+  }
+
+  // Find all units that have active non-cancelled bookings
+  const bookedUnitIds = await Booking.find({
+    companyId: user.companyId,
+    projectId,
+    status: { $ne: 'cancelled' },
+  }).distinct('unitId');
+
+  // Find count of protected units
+  const protectedFilter: Record<string, unknown> = {
+    ...filter,
+    $or: [
+      { _id: { $in: bookedUnitIds } },
+      { status: { $in: ['booked', 'sold'] } },
+      { currentBookingId: { $ne: null } },
+    ],
+  };
+  const protectedCount = await Unit.countDocuments(protectedFilter);
+
+  // Delete only eligible unbooked/available units
+  const deleteFilter: Record<string, unknown> = {
+    ...filter,
+    _id: { $nin: bookedUnitIds },
+    status: { $nin: ['booked', 'sold'] },
+    currentBookingId: null,
+  };
+
+  const deleteResult = await Unit.deleteMany(deleteFilter);
+
+  await logAudit(req, {
+    action: 'delete_bulk',
+    module: 'inventory',
+    entityType: 'unit',
+    description: `${user.name} deleted ${deleteResult.deletedCount} available units for project ${projectId} (preserved ${protectedCount} booked/sold units)`,
+  });
+
+  sendSuccess(
+    res,
+    {
+      deletedCount: deleteResult.deletedCount,
+      preservedCount: protectedCount,
+    },
+    `Deleted ${deleteResult.deletedCount} available unit(s).${protectedCount > 0 ? ` ${protectedCount} booked/sold unit(s) were kept safe.` : ''}`,
+  );
+}
+
 // ── Customer 360° Profile ────────────────────────────────────────
 
 export async function getCustomer360Profile(req: Req, res: Response) {

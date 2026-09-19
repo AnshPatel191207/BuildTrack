@@ -25,6 +25,22 @@ export default function PropertyReceiptsScreen() {
   const { colors, spacing, radius } = theme;
 
   const [search, setSearch] = useState('');
+  const [generatingReceiptId, setGeneratingReceiptId] = useState<string | null>(null);
+
+  const handleGenerateReceipt = async (paymentId: string) => {
+    setGeneratingReceiptId(paymentId);
+    try {
+      const res = await propertyService.generateReceipt(paymentId);
+      showToast(`Official Receipt ${res?.receiptNumber || ''} generated!`, 'success');
+      void reload();
+      const url = propertyService.getReceiptPdfUrl(paymentId);
+      void Linking.openURL(url);
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Failed to generate receipt', 'error');
+    } finally {
+      setGeneratingReceiptId(null);
+    }
+  };
 
   const {
     data: payments,
@@ -76,6 +92,22 @@ export default function PropertyReceiptsScreen() {
         subtitle="Official builder receipts with QR verification"
         large
         onBack={() => router.back()}
+        right={
+          <Pressable
+            onPress={() => router.push('/property/payments')}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.primary,
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+              borderRadius: radius.md,
+            }}
+          >
+            <Ionicons name="receipt-outline" size={16} color="#fff" style={{ marginRight: 4 }} />
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Issue Receipt</Text>
+          </Pressable>
+        }
       />
       <OfflineBanner />
 
@@ -160,6 +192,30 @@ export default function PropertyReceiptsScreen() {
                     marginTop: 10,
                   }}
                 >
+                  <Pressable
+                    onPress={() => handleGenerateReceipt(r._id)}
+                    disabled={generatingReceiptId === r._id}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: colors.surfaceAlt,
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      borderRadius: radius.sm,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                    }}
+                  >
+                    <Ionicons name="receipt-outline" size={14} color={colors.primary} style={{ marginRight: 4 }} />
+                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>
+                      {generatingReceiptId === r._id
+                        ? 'Generating...'
+                        : r.receiptNumber
+                          ? 'Regenerate'
+                          : 'Generate Receipt'}
+                    </Text>
+                  </Pressable>
+
                   <Pressable
                     onPress={() => void handleShare(r)}
                     style={{

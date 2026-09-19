@@ -566,6 +566,107 @@ export async function deleteUnit(req: Req, res: Response) {
   );
 }
 
+export async function updateUnit(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  if (!hasPermission(user.role, 'canManageUnits') && !hasPermission(user.role, 'canManageFlats') && !hasPermission(user.role, 'canManageShops')) {
+    throw ApiError.forbidden('You do not have permission to update inventory units.');
+  }
+
+  const { id } = req.params;
+  const unit = await Unit.findOne({ _id: id, companyId: user.companyId });
+  if (!unit) {
+    throw ApiError.notFound('Unit not found.');
+  }
+
+  const body = req.validatedBody || req.body;
+
+  if (body.unitNumber && body.unitNumber.toUpperCase().trim() !== unit.unitNumber) {
+    const existing = await Unit.findOne({
+      projectId: unit.projectId,
+      unitNumber: body.unitNumber.toUpperCase().trim(),
+      _id: { $ne: unit._id },
+    });
+    if (existing) {
+      throw ApiError.conflict(`Unit "${body.unitNumber}" already exists in this project.`);
+    }
+    unit.unitNumber = body.unitNumber.toUpperCase().trim();
+  }
+
+  if (body.unitType !== undefined) unit.unitType = body.unitType;
+  if (body.category !== undefined) unit.category = body.category;
+  if (body.status !== undefined) unit.status = body.status;
+
+  // Sqmt fields
+  if (body.plotAreaSqmt !== undefined) unit.plotAreaSqmt = Number(body.plotAreaSqmt);
+  if (body.builtUpAreaSqmt !== undefined) unit.builtUpAreaSqmt = Number(body.builtUpAreaSqmt);
+  if (body.carpetAreaSqmt !== undefined) unit.carpetAreaSqmt = Number(body.carpetAreaSqmt);
+  if (body.balconyAreaSqmt !== undefined) unit.balconyAreaSqmt = Number(body.balconyAreaSqmt);
+  if (body.terraceAreaSqmt !== undefined) unit.terraceAreaSqmt = Number(body.terraceAreaSqmt);
+  if (body.saleDeedAmount !== undefined) unit.saleDeedAmount = Number(body.saleDeedAmount);
+
+  // Sqft fields with 2 decimal precision
+  if (body.carpetAreaSqft !== undefined) {
+    unit.carpetAreaSqft = Number(body.carpetAreaSqft);
+  } else if (body.carpetAreaSqmt !== undefined && body.carpetAreaSqmt > 0) {
+    unit.carpetAreaSqft = Number((body.carpetAreaSqmt * 10.7639).toFixed(2));
+  }
+
+  if (body.builtUpAreaSqft !== undefined) {
+    unit.builtUpAreaSqft = Number(body.builtUpAreaSqft);
+  } else if (body.builtUpAreaSqmt !== undefined && body.builtUpAreaSqmt > 0) {
+    unit.builtUpAreaSqft = Number((body.builtUpAreaSqmt * 10.7639).toFixed(2));
+  }
+
+  if (body.areaSqft !== undefined) {
+    unit.areaSqft = Number(body.areaSqft);
+    unit.superBuiltupAreaSqft = Number(body.areaSqft);
+  } else if (unit.builtUpAreaSqft > 0) {
+    unit.areaSqft = unit.builtUpAreaSqft;
+    unit.superBuiltupAreaSqft = unit.builtUpAreaSqft;
+  }
+
+  if (body.bedrooms !== undefined) unit.bedrooms = body.bedrooms;
+  if (body.bathrooms !== undefined) unit.bathrooms = body.bathrooms;
+  if (body.balconies !== undefined) unit.balconies = body.balconies;
+  if (body.floorNumber !== undefined) unit.floorNumber = body.floorNumber;
+  if (body.facing !== undefined) unit.facing = body.facing;
+
+  if (body.ratePerSqft !== undefined) unit.ratePerSqft = Number(body.ratePerSqft);
+  if (body.parkingSlot !== undefined) unit.parkingSlot = body.parkingSlot;
+  if (body.parkingCharges !== undefined) unit.parkingCharges = Number(body.parkingCharges);
+  if (body.clubhouseCharges !== undefined) unit.clubhouseCharges = Number(body.clubhouseCharges);
+  if (body.gstPercentage !== undefined) unit.gstPercentage = Number(body.gstPercentage);
+
+  if (body.basePrice !== undefined) {
+    unit.basePrice = Number(body.basePrice);
+  } else if (unit.saleDeedAmount > 0 && (!unit.basePrice || unit.basePrice <= 0)) {
+    unit.basePrice = unit.saleDeedAmount;
+  }
+
+  if (body.totalValue !== undefined) {
+    unit.totalValue = Number(body.totalValue);
+    unit.finalPrice = Number(body.totalValue);
+  } else if (body.basePrice !== undefined || body.saleDeedAmount !== undefined) {
+    const val = unit.saleDeedAmount || unit.basePrice || 0;
+    unit.totalValue = val;
+    unit.finalPrice = val;
+  }
+
+  if (body.notes !== undefined) unit.notes = body.notes;
+
+  await unit.save();
+
+  await logAudit(req, {
+    action: 'update',
+    module: unit.category === 'shop' ? 'shops' : 'flats',
+    entityType: 'unit',
+    entityId: unit._id,
+    description: `${user.name} updated ${unit.category === 'shop' ? 'Shop' : 'Flat'} ${unit.unitNumber}`,
+  });
+
+  sendSuccess(res, unit, `Unit ${unit.unitNumber} updated successfully.`);
+}
+
 export async function deleteAllUnits(req: Req, res: Response) {
   const user = req.user! as AuthUser;
   if (!hasPermission(user.role, 'canManageUnits') && !hasPermission(user.role, 'canManageFlats') && !hasPermission(user.role, 'canManageShops')) {
@@ -573,19 +674,27 @@ export async function deleteAllUnits(req: Req, res: Response) {
   }
 
   const { projectId, category, includeBookedSold } = req.body || {};
-  if (!projectId) {
-    throw ApiError.badRequest('Project ID is required.');
-  }
-  await assertProjectAccess(user, projectId);
 
   const filter: Record<string, unknown> = {
     companyId: user.companyId,
-    projectId,
   };
+
+  if (projectId && projectId !== 'all' && projectId !== 'undefined') {
+    await assertProjectAccess(user, projectId);
+    filter.projectId = projectId;
+  }
 
   if (category && category !== 'all') {
     if (category === 'shop') {
       filter.category = { $in: ['shop', 'office'] };
+    } else if (category === 'flat') {
+      filter.$or = [
+        { category: 'flat' },
+        { category: 'residential' },
+        { category: { $nin: ['shop', 'office'] } },
+        { category: null },
+        { category: { $exists: false } },
+      ];
     } else {
       filter.category = category;
     }
@@ -599,10 +708,14 @@ export async function deleteAllUnits(req: Req, res: Response) {
     const unitIds = allUnits.map((u: any) => u._id);
 
     // Cancel all active bookings associated with these units
-    const bookingResult = await Booking.updateMany(
-      { unitId: { $in: unitIds }, companyId: user.companyId, status: { $ne: 'cancelled' } },
-      { $set: { status: 'cancelled', cancellationReason: 'Project units deleted from inventory by administrator' } },
-    );
+    let bookingResultModified = 0;
+    if (unitIds.length > 0) {
+      const bookingResult = await Booking.updateMany(
+        { unitId: { $in: unitIds }, companyId: user.companyId, status: { $ne: 'cancelled' } },
+        { $set: { status: 'cancelled', cancellationReason: 'Project units deleted from inventory by administrator' } },
+      );
+      bookingResultModified = bookingResult.modifiedCount;
+    }
 
     const deleteResult = await Unit.deleteMany(filter);
 
@@ -610,25 +723,27 @@ export async function deleteAllUnits(req: Req, res: Response) {
       action: 'delete_bulk',
       module: 'inventory',
       entityType: 'unit',
-      description: `${user.name} deleted ALL ${deleteResult.deletedCount} units (including booked/sold) for project ${projectId}`,
+      description: `${user.name} deleted ALL ${deleteResult.deletedCount} units (including booked/sold)${projectId ? ` for project ${projectId}` : ''}`,
     });
 
     sendSuccess(
       res,
       {
         deletedCount: deleteResult.deletedCount,
-        cancelledBookingsCount: bookingResult.modifiedCount,
+        cancelledBookingsCount: bookingResultModified,
         includedBookedSold: true,
       },
-      `Deleted all ${deleteResult.deletedCount} unit(s) successfully.${bookingResult.modifiedCount > 0 ? ` (${bookingResult.modifiedCount} booking(s) cancelled)` : ''}`,
+      `Deleted all ${deleteResult.deletedCount} unit(s) successfully.${bookingResultModified > 0 ? ` (${bookingResultModified} booking(s) cancelled)` : ''}`,
     );
   } else {
     // Delete available units only (preserve booked/sold units)
-    const bookedUnitIds = await Booking.find({
+    const bookingQuery: Record<string, unknown> = {
       companyId: user.companyId,
-      projectId,
       status: { $ne: 'cancelled' },
-    }).distinct('unitId');
+    };
+    if (filter.projectId) bookingQuery.projectId = filter.projectId;
+
+    const bookedUnitIds = await Booking.find(bookingQuery).distinct('unitId');
 
     const protectedFilter: Record<string, unknown> = {
       ...filter,
@@ -653,7 +768,7 @@ export async function deleteAllUnits(req: Req, res: Response) {
       action: 'delete_bulk',
       module: 'inventory',
       entityType: 'unit',
-      description: `${user.name} deleted ${deleteResult.deletedCount} available units for project ${projectId} (preserved ${protectedCount} booked/sold units)`,
+      description: `${user.name} deleted ${deleteResult.deletedCount} available units${projectId ? ` for project ${projectId}` : ''} (preserved ${protectedCount} booked/sold units)`,
     });
 
     sendSuccess(
@@ -663,7 +778,7 @@ export async function deleteAllUnits(req: Req, res: Response) {
         preservedCount: protectedCount,
         includedBookedSold: false,
       },
-      `Deleted ${deleteResult.deletedCount} available unit(s).${protectedCount > 0 ? ` ${protectedCount} booked/sold unit(s) were kept safe.` : ''}`,
+      `Deleted ${deleteResult.deletedCount} available unit(s). ${protectedCount} booked/sold unit(s) preserved.`,
     );
   }
 }

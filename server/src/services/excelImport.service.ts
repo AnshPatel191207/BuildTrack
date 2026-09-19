@@ -35,6 +35,8 @@ export interface ExcelRowParsed {
   bathrooms?: number;
   balconies?: number;
   notes?: string;
+  isExisting?: boolean;
+  isUpdate?: boolean;
 }
 
 export interface ImportError {
@@ -50,21 +52,28 @@ export interface ImportPreviewResult {
   validCount: number;
   errorCount: number;
   duplicateCount: number;
+  updateCount?: number;
   validRows: ExcelRowParsed[];
   errors: ImportError[];
 }
 
-/** Robust numeric parser that handles commas, currency symbols, and unit texts like 'sqft' */
-function parseNumber(val: any, multiplier = 1): number {
+/** Robust numeric parser that handles commas, currency symbols, and unit texts like 'sqft'.
+ * Preserves 2 decimal places (xx.xx) without rounding to integers.
+ */
+function parseNumber(val: any, multiplier = 1, decimalPlaces = 2): number {
   if (val === null || val === undefined || val === '') return 0;
-  if (typeof val === 'number') return isNaN(val) ? 0 : Math.round(val * multiplier);
+  if (typeof val === 'number') {
+    if (isNaN(val)) return 0;
+    const res = val * multiplier;
+    return decimalPlaces === 0 ? Math.round(res) : Number(res.toFixed(decimalPlaces));
+  }
 
   let str = String(val).trim();
   // Check if string mentions sq yard or sq meter
   if (/sq\.?\s*y(ar)?d|varga?\s*vaar|varg/i.test(str)) {
     multiplier = 9;
   } else if (/sq\.?\s*m(t|tr|eter)?|sqm/i.test(str)) {
-    multiplier = 10.764;
+    multiplier = 10.7639;
   }
 
   // Remove commas (e.g. 1,200 or 50,00,000)
@@ -77,7 +86,9 @@ function parseNumber(val: any, multiplier = 1): number {
   const match = str.match(/[-+]?[0-9]*\.?[0-9]+/);
   if (match) {
     const num = parseFloat(match[0]);
-    return isNaN(num) ? 0 : Math.round(num * multiplier);
+    if (isNaN(num)) return 0;
+    const res = num * multiplier;
+    return decimalPlaces === 0 ? Math.round(res) : Number(res.toFixed(decimalPlaces));
   }
   return 0;
 }
@@ -108,15 +119,27 @@ function createCleanRowGetter(row: Record<string, any>) {
         if (v !== undefined && v !== null && v !== '') return v;
       }
     }
-    // 2. Substring match fallback
+
+    const GENERIC_KEYS = new Set([
+      'area', 'sqft', 'sft', 'sqmt', 'sqm', 'sqmtr', 'sqyd', 'size',
+      'rate', 'cost', 'price', 'type', 'name', 'unit', 'flat', 'shop', 'block', 'floor'
+    ]);
+
+    // 2. Substring match fallback for descriptive keys only
     for (const cand of candidateKeys) {
       const cleanCand = cand
         .toLowerCase()
         .replace(/[\r\n\t_ \-\.\(\)\/\\\[\]\,\:\*\#]+/g, '')
         .trim();
-      if (cleanCand.length < 3) continue;
+      if (cleanCand.length < 4 || GENERIC_KEYS.has(cleanCand)) continue;
       for (const [k, v] of map.entries()) {
-        if (k.includes(cleanCand) || cleanCand.includes(k)) {
+        if (GENERIC_KEYS.has(k)) continue;
+        // Do not match a Sqmt column when searching for general/sqft fields (e.g. builtuparea matching unitbuiltupareainsqmt)
+        const isCandSqmt = cleanCand.includes('sqmt') || cleanCand.includes('sqm');
+        const isKeySqmt = k.includes('sqmt') || k.includes('sqm');
+        if (!isCandSqmt && isKeySqmt) continue;
+
+        if (k.includes(cleanCand) || (cleanCand.includes(k) && k.length >= 5)) {
           if (v !== undefined && v !== null && v !== '') return v;
         }
       }
@@ -225,8 +248,24 @@ export function generateSampleExcelTemplate(project?: { name?: string; projectCo
 export async function parseAndPreviewExcel(
   buffer: Buffer,
   companyId: unknown,
-  defaultProjectId?: string,
+  defaultProjectIdOrOptions?: string | { defaultProjectId?: string; overwriteExisting?: boolean },
+  maybeOverwrite?: boolean,
 ): Promise<ImportPreviewResult> {
+  let defaultProjectId: string | undefined;
+  let overwriteExisting = true;
+
+  if (typeof defaultProjectIdOrOptions === 'object' && defaultProjectIdOrOptions !== null) {
+    defaultProjectId = defaultProjectIdOrOptions.defaultProjectId;
+    if (defaultProjectIdOrOptions.overwriteExisting !== undefined) {
+      overwriteExisting = Boolean(defaultProjectIdOrOptions.overwriteExisting);
+    }
+  } else {
+    defaultProjectId = defaultProjectIdOrOptions;
+    if (maybeOverwrite !== undefined) {
+      overwriteExisting = Boolean(maybeOverwrite);
+    }
+  }
+
   const workbook = XLSX.read(buffer, { type: 'buffer' });
   if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
     throw new Error('The uploaded Excel file contains no worksheets.');
@@ -250,6 +289,7 @@ export async function parseAndPreviewExcel(
   const validRows: ExcelRowParsed[] = [];
   const errors: ImportError[] = [];
   let duplicateCount = 0;
+  let updateCount = 0;
 
   // Cache existing projects for fast resolution
   const existingProjects = await Project.find({ companyId }).select('_id name projectCode').lean();
@@ -385,22 +425,22 @@ export async function parseAndPreviewExcel(
     ));
 
     // Handle Sq. Yards (e.g. 120 sq yard = 1080 sqft) & Sq. Meters
-    const sqYdArea = parseNumber(get('sqyd', 'sqyard', 'areasqyd', 'areasqyard', 'varg', 'vargvaar'), 9);
-    const sqMtArea = parseNumber(get('sqmt', 'sqmeter', 'sqmtr', 'areasqmt', 'areasqm', 'areasqmtr'), 10.764);
+    const sqYdArea = parseNumber(get('sqyd', 'sqyard', 'areasqyd', 'areasqyard', 'varg', 'vargvaar'), 9, 2);
+    const sqMtArea = parseNumber(get('sqmt', 'sqmeter', 'sqmtr', 'areasqmt', 'areasqm', 'areasqmtr'), 10.764, 2);
 
-    let resolvedCarpet = carpetArea || (carpetAreaSqmt > 0 ? Math.round(carpetAreaSqmt * 10.7639) : 0);
-    let resolvedBuiltUp = builtUpArea || (builtUpAreaSqmt > 0 ? Math.round(builtUpAreaSqmt * 10.7639) : 0);
+    let resolvedCarpet = (carpetAreaSqmt > 0 ? Number((carpetAreaSqmt * 10.7639).toFixed(2)) : 0) || carpetArea;
+    let resolvedBuiltUp = (builtUpAreaSqmt > 0 ? Number((builtUpAreaSqmt * 10.7639).toFixed(2)) : 0) || builtUpArea;
     let resolvedArea = superBuiltupArea || sqYdArea || sqMtArea || resolvedBuiltUp || resolvedCarpet || 0;
 
     // Cross-infer missing area measurements
     if (!resolvedArea && resolvedCarpet > 0) {
-      resolvedArea = Math.round(resolvedCarpet * 1.33);
+      resolvedArea = Number((resolvedCarpet * 1.33).toFixed(2));
     }
     if (!resolvedBuiltUp && resolvedArea > 0) {
-      resolvedBuiltUp = Math.round(resolvedArea * 0.9);
+      resolvedBuiltUp = Number((resolvedArea * 0.9).toFixed(2));
     }
     if (!resolvedCarpet && resolvedArea > 0) {
-      resolvedCarpet = Math.round(resolvedArea * 0.75);
+      resolvedCarpet = Number((resolvedArea * 0.75).toFixed(2));
     }
 
     // 8. Rates, Pricing, and Extra Charges
@@ -430,8 +470,8 @@ export async function parseAndPreviewExcel(
     // Smart area fallback from Price & Rate if area was missing or 0
     if (resolvedArea <= 0 && (basePrice > 0 || totalValue > 0) && rate > 0) {
       const priceForCalc = basePrice > 0 ? basePrice : totalValue;
-      resolvedArea = Math.round(priceForCalc / rate);
-      resolvedCarpet = Math.round(resolvedArea * 0.75);
+      resolvedArea = Number((priceForCalc / rate).toFixed(2));
+      resolvedCarpet = Number((resolvedArea * 0.75).toFixed(2));
       resolvedBuiltUp = resolvedArea;
     }
 
@@ -496,19 +536,27 @@ export async function parseAndPreviewExcel(
     }
 
     // Duplicate detection against DB
+    let isExisting = false;
+    let isUpdate = false;
     const dbKey = `${String(matchedProject._id)}::${unitNumber}`;
     if (existingUnitSet.has(dbKey)) {
-      duplicateCount++;
-      errors.push({
-        rowNumber,
-        unitNumber,
-        projectName: matchedProject.name,
-        reason: `Unit "${unitNumber}" already exists in Project "${matchedProject.name}". Duplicate skipped.`,
-      });
-      continue;
+      if (overwriteExisting) {
+        isExisting = true;
+        isUpdate = true;
+        updateCount++;
+      } else {
+        duplicateCount++;
+        errors.push({
+          rowNumber,
+          unitNumber,
+          projectName: matchedProject.name,
+          reason: `Unit "${unitNumber}" already exists in Project "${matchedProject.name}". Duplicate skipped.`,
+        });
+        continue;
+      }
     }
 
-    // Duplicate detection within the file
+    // Duplicate detection within the file itself
     if (internalSeenUnits.has(dbKey)) {
       duplicateCount++;
       errors.push({
@@ -539,7 +587,7 @@ export async function parseAndPreviewExcel(
       balconyAreaSqmt: balconyAreaSqmt || undefined,
       terraceAreaSqmt: terraceAreaSqmt || undefined,
       saleDeedAmount: saleDeedAmount || undefined,
-      rate: rate || Math.round(basePrice / (resolvedBuiltUp || resolvedArea || 1)),
+      rate: rate || (resolvedBuiltUp > 0 ? Number((basePrice / resolvedBuiltUp).toFixed(2)) : resolvedArea > 0 ? Number((basePrice / resolvedArea).toFixed(2)) : 0),
       price: totalValue,
       basePrice,
       parkingSlot,
@@ -553,6 +601,8 @@ export async function parseAndPreviewExcel(
       bathrooms,
       balconies,
       notes,
+      isExisting,
+      isUpdate,
     });
   }
 
@@ -561,6 +611,7 @@ export async function parseAndPreviewExcel(
     validCount: validRows.length,
     errorCount: errors.length,
     duplicateCount,
+    updateCount,
     validRows,
     errors,
   };
@@ -572,13 +623,15 @@ export async function executeExcelBulkImport(
   userId: unknown,
   validRows: ExcelRowParsed[],
   overrideProjectId?: string,
+  options?: { overwriteExisting?: boolean },
 ): Promise<{
   insertedUnits: number;
+  updatedUnits: number;
   towersCreated: number;
   floorsCreated: number;
 }> {
   if (!validRows || validRows.length === 0) {
-    return { insertedUnits: 0, towersCreated: 0, floorsCreated: 0 };
+    return { insertedUnits: 0, updatedUnits: 0, towersCreated: 0, floorsCreated: 0 };
   }
 
   const projects = await Project.find({ companyId }).lean();
@@ -597,6 +650,7 @@ export async function executeExcelBulkImport(
 
   let towersCreated = 0;
   let floorsCreated = 0;
+  let updatedUnits = 0;
 
   const existingNodes = await ProjectNode.find({
     companyId,
@@ -614,6 +668,7 @@ export async function executeExcelBulkImport(
   }
 
   const unitsToInsert: any[] = [];
+  const shouldOverwrite = options?.overwriteExisting !== false;
 
   for (const row of validRows) {
     const rowProj = (row.projectName ? String(row.projectName) : '').trim().toLowerCase();
@@ -660,45 +715,86 @@ export async function executeExcelBulkImport(
 
     // 3. Prepare full Unit document
     const unitArea = row.superBuiltupArea || row.area || row.builtUpArea || row.carpetArea || 0;
-    const carpetArea = row.carpetArea || Math.round(unitArea * 0.75);
+    const carpetArea = row.carpetArea || Number((unitArea * 0.75).toFixed(2));
     const builtUpArea = row.builtUpArea || unitArea;
     const basePrice = row.basePrice || row.price || 0;
     const totalVal = row.totalValue || row.price || basePrice;
 
-    unitsToInsert.push({
-      companyId,
-      projectId,
-      blockId: tower._id,
-      towerId: tower._id,
-      floorId: floor._id,
-      category: row.category || 'flat',
-      unitNumber: row.unitNumber,
-      unitType: row.unitType || (row.category === 'shop' ? 'Commercial Shop' : 'Residential Flat'),
-      areaSqft: unitArea,
-      carpetAreaSqft: carpetArea,
-      builtUpAreaSqft: builtUpArea,
-      superBuiltupAreaSqft: unitArea,
-      plotAreaSqmt: row.plotAreaSqmt || null,
-      builtUpAreaSqmt: row.builtUpAreaSqmt || null,
-      carpetAreaSqmt: row.carpetAreaSqmt || null,
-      balconyAreaSqmt: row.balconyAreaSqmt || null,
-      terraceAreaSqmt: row.terraceAreaSqmt || null,
-      saleDeedAmount: row.saleDeedAmount || null,
-      bedrooms: row.bedrooms !== undefined ? row.bedrooms : (row.category === 'shop' ? 0 : null),
-      bathrooms: row.bathrooms !== undefined ? row.bathrooms : (row.category === 'shop' ? 1 : null),
-      balconies: row.balconies !== undefined ? row.balconies : 0,
-      facing: row.facing || null,
-      ratePerSqft: row.rate || (unitArea > 0 ? Math.round(basePrice / unitArea) : 0),
-      basePrice: basePrice,
-      parkingSlot: row.parkingSlot || null,
-      parkingCharges: row.parkingCharges || 0,
-      clubhouseCharges: row.clubhouseCharges || 0,
-      gstPercentage: row.gstPercentage || (row.category === 'shop' ? 12 : 5),
-      totalValue: totalVal,
-      finalPrice: totalVal,
-      status: row.status || 'available',
-      notes: row.notes || null,
-    });
+    // Check if unit exists in DB
+    let existingUnit: any = null;
+    if (row.isExisting || row.isUpdate || shouldOverwrite) {
+      existingUnit = await Unit.findOne({ companyId, projectId, unitNumber: row.unitNumber });
+    }
+
+    if (existingUnit) {
+      existingUnit.blockId = tower._id;
+      existingUnit.towerId = tower._id;
+      existingUnit.floorId = floor._id;
+      if (row.category) existingUnit.category = row.category;
+      if (row.unitType) existingUnit.unitType = row.unitType;
+      existingUnit.areaSqft = unitArea;
+      existingUnit.carpetAreaSqft = carpetArea;
+      existingUnit.builtUpAreaSqft = builtUpArea;
+      existingUnit.superBuiltupAreaSqft = unitArea;
+      if (row.plotAreaSqmt !== undefined) existingUnit.plotAreaSqmt = row.plotAreaSqmt;
+      if (row.builtUpAreaSqmt !== undefined) existingUnit.builtUpAreaSqmt = row.builtUpAreaSqmt;
+      if (row.carpetAreaSqmt !== undefined) existingUnit.carpetAreaSqmt = row.carpetAreaSqmt;
+      if (row.balconyAreaSqmt !== undefined) existingUnit.balconyAreaSqmt = row.balconyAreaSqmt;
+      if (row.terraceAreaSqmt !== undefined) existingUnit.terraceAreaSqmt = row.terraceAreaSqmt;
+      if (row.saleDeedAmount !== undefined) existingUnit.saleDeedAmount = row.saleDeedAmount;
+      if (row.bedrooms !== undefined) existingUnit.bedrooms = row.bedrooms;
+      if (row.bathrooms !== undefined) existingUnit.bathrooms = row.bathrooms;
+      if (row.balconies !== undefined) existingUnit.balconies = row.balconies;
+      if (row.facing) existingUnit.facing = row.facing;
+      if (row.rate) existingUnit.ratePerSqft = row.rate;
+      if (basePrice > 0) existingUnit.basePrice = basePrice;
+      if (row.parkingSlot) existingUnit.parkingSlot = row.parkingSlot;
+      if (row.parkingCharges) existingUnit.parkingCharges = row.parkingCharges;
+      if (row.clubhouseCharges) existingUnit.clubhouseCharges = row.clubhouseCharges;
+      if (row.gstPercentage) existingUnit.gstPercentage = row.gstPercentage;
+      if (totalVal > 0) {
+        existingUnit.totalValue = totalVal;
+        existingUnit.finalPrice = totalVal;
+      }
+      if (row.notes) existingUnit.notes = row.notes;
+      await existingUnit.save();
+      updatedUnits++;
+    } else {
+      unitsToInsert.push({
+        companyId,
+        projectId,
+        blockId: tower._id,
+        towerId: tower._id,
+        floorId: floor._id,
+        category: row.category || 'flat',
+        unitNumber: row.unitNumber,
+        unitType: row.unitType || (row.category === 'shop' ? 'Commercial Shop' : 'Residential Flat'),
+        areaSqft: unitArea,
+        carpetAreaSqft: carpetArea,
+        builtUpAreaSqft: builtUpArea,
+        superBuiltupAreaSqft: unitArea,
+        plotAreaSqmt: row.plotAreaSqmt || null,
+        builtUpAreaSqmt: row.builtUpAreaSqmt || null,
+        carpetAreaSqmt: row.carpetAreaSqmt || null,
+        balconyAreaSqmt: row.balconyAreaSqmt || null,
+        terraceAreaSqmt: row.terraceAreaSqmt || null,
+        saleDeedAmount: row.saleDeedAmount || null,
+        bedrooms: row.bedrooms !== undefined ? row.bedrooms : (row.category === 'shop' ? 0 : null),
+        bathrooms: row.bathrooms !== undefined ? row.bathrooms : (row.category === 'shop' ? 1 : null),
+        balconies: row.balconies !== undefined ? row.balconies : 0,
+        facing: row.facing || null,
+        ratePerSqft: row.rate || (unitArea > 0 ? Number((basePrice / unitArea).toFixed(2)) : 0),
+        basePrice: basePrice,
+        parkingSlot: row.parkingSlot || null,
+        parkingCharges: row.parkingCharges || 0,
+        clubhouseCharges: row.clubhouseCharges || 0,
+        gstPercentage: row.gstPercentage || (row.category === 'shop' ? 12 : 5),
+        totalValue: totalVal,
+        finalPrice: totalVal,
+        status: row.status || 'available',
+        notes: row.notes || null,
+      });
+    }
   }
 
   let insertedUnits = 0;
@@ -713,6 +809,7 @@ export async function executeExcelBulkImport(
 
   return {
     insertedUnits,
+    updatedUnits,
     towersCreated,
     floorsCreated,
   };

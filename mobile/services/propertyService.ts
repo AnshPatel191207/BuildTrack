@@ -137,6 +137,11 @@ export const propertyService = {
     return res.data.data;
   },
 
+  updateUnit: async (unitId: string, data: Record<string, unknown>) => {
+    const res = await api.patch<ApiResponse<PropertyUnit>>(`/property/units/${unitId}`, data);
+    return res.data.data;
+  },
+
   deleteUnit: async (unitId: string) => {
     const res = await api.delete<ApiResponse<{ message: string }>>(`/property/units/${unitId}`);
     return res.data.data;
@@ -349,18 +354,20 @@ export const propertyService = {
     return `${API_URL}/property/import/template${qs ? `?${qs}` : ''}`;
   },
 
-  previewExcelImport: async (formData: FormData, projectId?: string) => {
-    const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
-    const res = await api.post<ApiResponse<ExcelImportPreview>>(`/property/import/preview${qs}`, formData, {
+  previewExcelImport: async (formData: FormData, projectId?: string, overwriteExisting = true) => {
+    const params = new URLSearchParams();
+    if (projectId) params.append('projectId', projectId);
+    params.append('overwriteExisting', String(overwriteExisting));
+    const res = await api.post<ApiResponse<ExcelImportPreview>>(`/property/import/preview?${params.toString()}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return res.data.data;
   },
 
-  executeExcelImport: async (rows: any[], projectId?: string) => {
-    const res = await api.post<ApiResponse<{ unitsCreated: number; towersCreated?: number; floorsCreated?: number }>>(
+  executeExcelImport: async (rows: any[], projectId?: string, overwriteExisting = true) => {
+    const res = await api.post<ApiResponse<{ insertedUnits?: number; unitsCreated?: number; updatedUnits?: number; towersCreated?: number; floorsCreated?: number }>>(
       '/property/import/execute',
-      { validRows: rows, projectId },
+      { validRows: rows, projectId, overwriteExisting },
     );
     return res.data.data;
   },

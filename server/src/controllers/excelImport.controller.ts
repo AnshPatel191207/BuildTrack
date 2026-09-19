@@ -41,7 +41,14 @@ export async function previewExcelImport(req: Req, res: Response) {
   }
 
   const projectId = (req.body?.projectId || req.query?.projectId) as string | undefined;
-  const preview = await parseAndPreviewExcel(req.file.buffer, user.companyId, projectId);
+  const overwriteExisting = req.body?.overwriteExisting !== undefined
+    ? req.body.overwriteExisting === 'true' || req.body.overwriteExisting === true
+    : (req.query?.overwriteExisting !== undefined ? req.query.overwriteExisting === 'true' : true);
+
+  const preview = await parseAndPreviewExcel(req.file.buffer, user.companyId, {
+    defaultProjectId: projectId,
+    overwriteExisting,
+  });
   sendSuccess(res, preview, 'File parsed successfully. Review preview below.');
 }
 
@@ -52,22 +59,28 @@ export async function executeExcelImport(req: Req, res: Response) {
     throw ApiError.forbidden('You do not have permission to import inventory.');
   }
 
-  const { validRows, projectId } = req.body;
+  const { validRows, projectId, overwriteExisting } = req.body;
   if (!validRows || !Array.isArray(validRows) || validRows.length === 0) {
     throw ApiError.badRequest('No valid rows provided for import.');
   }
 
-  const result = await executeExcelBulkImport(user.companyId, user._id, validRows, projectId);
+  const result = await executeExcelBulkImport(
+    user.companyId,
+    user._id,
+    validRows,
+    projectId,
+    { overwriteExisting: overwriteExisting !== false },
+  );
 
   await logAudit(req, {
     action: 'bulk_import',
     module: 'inventory_import',
-    description: `${user.name} bulk imported ${result.insertedUnits} units (${result.towersCreated} towers, ${result.floorsCreated} floors created)`,
+    description: `${user.name} bulk imported ${result.insertedUnits} new and updated ${result.updatedUnits || 0} units (${result.towersCreated} towers, ${result.floorsCreated} floors created)`,
   });
 
   sendCreated(
     res,
     result,
-    `Successfully imported ${result.insertedUnits} units across ${result.towersCreated} new towers and ${result.floorsCreated} new floors.`,
+    `Successfully processed units: ${result.insertedUnits} inserted, ${result.updatedUnits || 0} updated across ${result.towersCreated} new towers and ${result.floorsCreated} new floors.`,
   );
 }

@@ -9,6 +9,7 @@ import {
   floorBodySchema,
   flatBodySchema,
   shopBodySchema,
+  unitUpdateBodySchema,
   templateBodySchema,
   projectBrandingBodySchema,
   projectThemeBodySchema,
@@ -133,6 +134,26 @@ router.post(
   '/units/delete-all',
   requirePermission('canManageUnits'),
   asyncHandler(property.deleteAllUnits),
+);
+
+// Inventory Updates (Flats & Shops)
+router.patch(
+  '/units/:id',
+  requirePermission('canManageUnits', 'canManageFlats', 'canManageShops'),
+  validate({ body: unitUpdateBodySchema }),
+  asyncHandler(property.updateUnit),
+);
+router.patch(
+  '/flats/:id',
+  requirePermission('canManageUnits', 'canManageFlats'),
+  validate({ body: unitUpdateBodySchema }),
+  asyncHandler(property.updateUnit),
+);
+router.patch(
+  '/shops/:id',
+  requirePermission('canManageUnits', 'canManageShops'),
+  validate({ body: unitUpdateBodySchema }),
+  asyncHandler(property.updateUnit),
 );
 
 // ── Customers & 360° Profile ──────────────────────────────────────

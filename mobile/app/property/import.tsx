@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, Text, View, Pressable, Linking, StyleSheet } from 'react-native';
+import { ScrollView, Text, View, Pressable, Linking, StyleSheet, Alert, Switch } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -13,6 +13,13 @@ import { useResource } from '@/hooks/useResource';
 import { propertyService } from '@/services/propertyService';
 import { showToast } from '@/components/ui/Toast';
 import type { PropertyProject, ExcelImportPreview } from '@/types';
+
+function formatDecimal(val: number | string | null | undefined): string {
+  if (val === null || val === undefined || val === '') return '0.00';
+  const n = Number(val);
+  if (isNaN(n)) return '0.00';
+  return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 // Built-in starter inventory matching exact 11 columns from user's Excel file
 const DEMO_EXCEL_ROWS = [
@@ -30,9 +37,9 @@ const DEMO_EXCEL_ROWS = [
     balconyAreaSqmt: 4.59,
     terraceAreaSqmt: 43.18,
     saleDeedAmount: 4040000,
-    carpetArea: 649,
-    builtUpArea: 740,
-    superBuiltupArea: 740,
+    carpetArea: 649.62,
+    builtUpArea: 740.56,
+    superBuiltupArea: 740.56,
     basePrice: 4040000,
     totalValue: 4040000,
     status: 'available',
@@ -112,6 +119,8 @@ export default function PropertyExcelImportScreen() {
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [validating, setValidating] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [overwriteExisting, setOverwriteExisting] = useState(true);
   const [previewData, setPreviewData] = useState<ExcelImportPreview | null>(null);
   const [showFormatGuide, setShowFormatGuide] = useState(false);
 
@@ -138,6 +147,42 @@ export default function PropertyExcelImportScreen() {
     } catch {
       showToast('Could not initiate template download', 'error');
     }
+  };
+
+  // ── Clear All Units in Currently Selected Project ──
+  const handleClearProjectUnits = () => {
+    if (!selectedProjectId) {
+      showToast('Select a project first', 'error');
+      return;
+    }
+    const pName = selectedProject?.name || 'this project';
+    Alert.alert(
+      'Clear All Units in Project',
+      `Are you sure you want to delete all flats and shops in "${pName}"? This permanently deletes inventory units (including booked & sold). This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: async () => {
+            setClearing(true);
+            try {
+              const res = await propertyService.deleteAllUnits({
+                projectId: selectedProjectId,
+                category: 'all',
+                includeBookedSold: true,
+              });
+              showToast(res.message || `Deleted all ${res.deletedCount} units in ${pName}.`, 'success');
+              setPreviewData(null);
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to clear units', 'error');
+            } finally {
+              setClearing(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   // ── Pick Real File from Device (.xlsx, .xls, .csv) ──
@@ -184,15 +229,19 @@ export default function PropertyExcelImportScreen() {
         type: selectedFile.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       } as any);
       formData.append('projectId', selectedProjectId);
+      formData.append('overwriteExisting', String(overwriteExisting));
 
-      const preview = await propertyService.previewExcelImport(formData, selectedProjectId);
+      const preview = await propertyService.previewExcelImport(formData, selectedProjectId, overwriteExisting);
       setPreviewData(preview);
 
       const validCount = preview.validCount ?? (Array.isArray(preview.validRows) ? preview.validRows.length : 0);
       const errorCount = preview.errorCount ?? preview.errorRows ?? 0;
+      const updateCount = preview.updateCount ?? 0;
 
       if (errorCount > 0) {
         showToast(`Parsed with ${errorCount} issue(s). Review summary below.`, 'info');
+      } else if (updateCount > 0) {
+        showToast(`Parsed ${validCount} units (${updateCount} updates to existing units).`, 'success');
       } else {
         showToast(`Parsed ${validCount} units successfully!`, 'success');
       }
@@ -245,10 +294,16 @@ export default function PropertyExcelImportScreen() {
 
     setImporting(true);
     try {
-      const result = await propertyService.executeExcelImport(rowsToImport, selectedProjectId);
+      const result = await propertyService.executeExcelImport(rowsToImport, selectedProjectId, overwriteExisting);
 
       const count = result.unitsCreated ?? (result as any).insertedUnits ?? rowsToImport.length;
-      showToast(`Bulk Import Complete! Created ${count} units successfully.`, 'success');
+      const updated = result.updatedUnits ?? 0;
+      showToast(
+        updated > 0
+          ? `Bulk Import Complete! Created ${count} new, updated ${updated} existing units.`
+          : `Bulk Import Complete! Created ${count} units successfully.`,
+        'success',
+      );
 
       setPreviewData(null);
       setSelectedFile(null);
@@ -522,6 +577,72 @@ export default function PropertyExcelImportScreen() {
               </Text>
             </Pressable>
 
+            {/* Overwrite / Update Existing Units Toggle */}
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: colors.surfaceAlt,
+                padding: 12,
+                borderRadius: radius.md,
+                marginTop: 4,
+              }}
+            >
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
+                  Overwrite / Update Existing Units
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                  When enabled, units matching unit number will be updated in-place with spreadsheet values instead of being skipped.
+                </Text>
+              </View>
+              <Switch
+                value={overwriteExisting}
+                onValueChange={setOverwriteExisting}
+                trackColor={{ false: colors.border, true: colors.primary }}
+              />
+            </View>
+
+            {/* Clear All Project Units Option */}
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: colors.surfaceAlt,
+                padding: 12,
+                borderRadius: radius.md,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.danger }}>
+                  Clear All Units in this Project
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                  Delete all units (flats & shops) in {selectedProject?.name || 'this project'} to start fresh.
+                </Text>
+              </View>
+              <Pressable
+                onPress={handleClearProjectUnits}
+                disabled={clearing}
+                style={{
+                  backgroundColor: colors.dangerSoft,
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  borderRadius: radius.sm,
+                  borderWidth: 1,
+                  borderColor: colors.danger,
+                }}
+              >
+                <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>
+                  {clearing ? 'Clearing…' : 'Clear All'}
+                </Text>
+              </Pressable>
+            </View>
+
             {/* Action Buttons */}
             {selectedFile ? (
               <View style={{ gap: 8, marginTop: 4 }}>
@@ -587,7 +708,7 @@ export default function PropertyExcelImportScreen() {
                   </Text>
                   <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
                     {errorCount === 0
-                      ? 'All rows verified successfully. Ready to insert into database.'
+                      ? `All ${validCount} rows verified successfully.${(previewData.updateCount || 0) > 0 ? ` (${previewData.updateCount} existing units will be updated)` : ''} Ready to import.`
                       : `Found ${validCount} valid units and ${errorCount} issue(s).`}
                   </Text>
                 </View>
@@ -605,26 +726,34 @@ export default function PropertyExcelImportScreen() {
                 }}
               >
                 <View style={{ alignItems: 'center', flex: 1 }}>
-                  <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>
+                  <Text style={{ fontSize: 10.5, color: colors.textFaint, textTransform: 'uppercase' }}>
                     Total In Sheet
                   </Text>
-                  <Text style={{ fontSize: 19, fontWeight: '800', color: colors.text, marginTop: 2 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text, marginTop: 2 }}>
                     {previewData.totalRows}
                   </Text>
                 </View>
                 <View style={{ alignItems: 'center', flex: 1 }}>
-                  <Text style={{ fontSize: 11, color: colors.success, textTransform: 'uppercase' }}>
-                    Valid Units
+                  <Text style={{ fontSize: 10.5, color: colors.success, textTransform: 'uppercase' }}>
+                    New Units
                   </Text>
-                  <Text style={{ fontSize: 19, fontWeight: '800', color: colors.success, marginTop: 2 }}>
-                    {validCount}
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: colors.success, marginTop: 2 }}>
+                    {Math.max(0, validCount - (previewData.updateCount || 0))}
                   </Text>
                 </View>
                 <View style={{ alignItems: 'center', flex: 1 }}>
-                  <Text style={{ fontSize: 11, color: errorCount > 0 ? colors.danger : colors.textFaint, textTransform: 'uppercase' }}>
+                  <Text style={{ fontSize: 10.5, color: colors.primary, textTransform: 'uppercase' }}>
+                    Updating
+                  </Text>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: colors.primary, marginTop: 2 }}>
+                    {previewData.updateCount || 0}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'center', flex: 1 }}>
+                  <Text style={{ fontSize: 10.5, color: errorCount > 0 ? colors.danger : colors.textFaint, textTransform: 'uppercase' }}>
                     Issues
                   </Text>
-                  <Text style={{ fontSize: 19, fontWeight: '800', color: errorCount > 0 ? colors.danger : colors.textFaint, marginTop: 2 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: errorCount > 0 ? colors.danger : colors.textFaint, marginTop: 2 }}>
                     {errorCount}
                   </Text>
                 </View>
@@ -656,10 +785,11 @@ export default function PropertyExcelImportScreen() {
               {previewRows.length > 0 ? (
                 <View style={{ gap: 8 }}>
                   <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
-                    Units Ready to Create ({previewRows.length}):
+                    Units Ready to Process ({previewRows.length}):
                   </Text>
-                  {previewRows.slice(0, 15).map((r: any, i: number) => {
+                  {previewRows.slice(0, 20).map((r: any, i: number) => {
                     const isShop = (r.category || '').toLowerCase() === 'shop';
+                    const isUpdate = Boolean(r.isUpdate || r.isExisting);
                     return (
                       <View
                         key={i}
@@ -667,6 +797,8 @@ export default function PropertyExcelImportScreen() {
                           padding: 12,
                           backgroundColor: colors.surfaceAlt,
                           borderRadius: radius.md,
+                          borderLeftWidth: 3,
+                          borderLeftColor: isUpdate ? colors.primary : colors.success,
                           gap: 4,
                         }}
                       >
@@ -679,55 +811,62 @@ export default function PropertyExcelImportScreen() {
                               label={isShop ? 'SHOP' : 'FLAT'}
                               tone={isShop ? 'orange' : 'info'}
                             />
+                            {isUpdate ? (
+                              <Badge
+                                label="UPDATE"
+                                tone="orange"
+                              />
+                            ) : null}
                             <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textMuted }}>
                               {r.unitType || (isShop ? 'Commercial' : 'Residential')}
                             </Text>
                           </View>
                           <Text style={{ fontSize: 14, fontWeight: '800', color: colors.primary }}>
-                            ₹{Number(r.totalValue || r.price || r.basePrice || 0).toLocaleString('en-IN')}
+                            ₹{formatDecimal(r.saleDeedAmount || r.totalValue || r.price || r.basePrice)}
                           </Text>
                         </View>
 
+                        {/* All 11 columns in clean 2-decimal format */}
                         <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap', marginTop: 2 }}>
                           <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
-                            {r.towerName || r.tower} • {r.floorName || r.floor}
+                            Block: {r.towerName || r.tower || '-'} • Floor: {r.floorName || r.floor || '-'}
                           </Text>
-                          {r.carpetAreaSqmt ? (
-                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
-                              Carpet: {r.carpetAreaSqmt} sqmt ({r.carpetArea || Math.round(r.carpetAreaSqmt * 10.7639)} sqft)
+                          {r.carpetAreaSqmt !== undefined && r.carpetAreaSqmt !== null ? (
+                            <Text style={{ fontSize: 11.5, color: colors.text }}>
+                              RERA Carpet: <Text style={{ fontWeight: '700' }}>{formatDecimal(r.carpetAreaSqmt)} sqmt</Text> ({formatDecimal(r.carpetAreaSqft || r.carpetArea)} sqft)
                             </Text>
                           ) : (
-                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
-                              Carpet: {r.carpetArea || r.carpetAreaSqft || '-'} sqft
+                            <Text style={{ fontSize: 11.5, color: colors.text }}>
+                              Carpet: {formatDecimal(r.carpetAreaSqft || r.carpetArea)} sqft
                             </Text>
                           )}
-                          {r.builtUpAreaSqmt ? (
-                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
-                              BuiltUp: {r.builtUpAreaSqmt} sqmt
+                          {r.builtUpAreaSqmt !== undefined && r.builtUpAreaSqmt !== null ? (
+                            <Text style={{ fontSize: 11.5, color: colors.text }}>
+                              Built-Up: <Text style={{ fontWeight: '700' }}>{formatDecimal(r.builtUpAreaSqmt)} sqmt</Text> ({formatDecimal(r.builtUpAreaSqft || r.builtUpArea)} sqft)
                             </Text>
-                          ) : r.builtUpArea || r.builtUpAreaSqft ? (
-                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
-                              BuiltUp: {r.builtUpArea || r.builtUpAreaSqft} sqft
-                            </Text>
-                          ) : null}
-                          {r.plotAreaSqmt ? (
-                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
-                              Plot: {r.plotAreaSqmt} sqmt
+                          ) : r.builtUpAreaSqft || r.builtUpArea ? (
+                            <Text style={{ fontSize: 11.5, color: colors.text }}>
+                              Built-Up: {formatDecimal(r.builtUpAreaSqft || r.builtUpArea)} sqft
                             </Text>
                           ) : null}
-                          {r.balconyAreaSqmt ? (
+                          {r.plotAreaSqmt !== undefined && r.plotAreaSqmt !== null && Number(r.plotAreaSqmt) > 0 ? (
                             <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
-                              Wash/Balc: {r.balconyAreaSqmt} sqmt
+                              Plot: <Text style={{ fontWeight: '700', color: colors.text }}>{formatDecimal(r.plotAreaSqmt)} sqmt</Text>
                             </Text>
                           ) : null}
-                          {r.terraceAreaSqmt ? (
+                          {r.balconyAreaSqmt !== undefined && r.balconyAreaSqmt !== null && Number(r.balconyAreaSqmt) > 0 ? (
                             <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
-                              Terrace: {r.terraceAreaSqmt} sqmt
+                              Wash/Balc: <Text style={{ fontWeight: '700', color: colors.text }}>{formatDecimal(r.balconyAreaSqmt)} sqmt</Text>
                             </Text>
                           ) : null}
-                          {r.saleDeedAmount ? (
+                          {r.terraceAreaSqmt !== undefined && r.terraceAreaSqmt !== null && Number(r.terraceAreaSqmt) > 0 ? (
+                            <Text style={{ fontSize: 11.5, color: colors.textFaint }}>
+                              Terrace: <Text style={{ fontWeight: '700', color: colors.text }}>{formatDecimal(r.terraceAreaSqmt)} sqmt</Text>
+                            </Text>
+                          ) : null}
+                          {r.saleDeedAmount !== undefined && r.saleDeedAmount !== null && Number(r.saleDeedAmount) > 0 ? (
                             <Text style={{ fontSize: 11.5, color: colors.primary, fontWeight: '700' }}>
-                              Sale Deed: ₹{Number(r.saleDeedAmount).toLocaleString('en-IN')}
+                              Sale Deed: ₹{formatDecimal(r.saleDeedAmount)}
                             </Text>
                           ) : null}
                           {r.facing ? (
@@ -745,9 +884,9 @@ export default function PropertyExcelImportScreen() {
                     );
                   })}
 
-                  {previewRows.length > 15 ? (
+                  {previewRows.length > 20 ? (
                     <Text style={{ fontSize: 12, color: colors.textFaint, textAlign: 'center', marginVertical: 4 }}>
-                      + {previewRows.length - 15} more units
+                      + {previewRows.length - 20} more units in spreadsheet
                     </Text>
                   ) : null}
                 </View>
@@ -755,7 +894,13 @@ export default function PropertyExcelImportScreen() {
 
               {validCount > 0 ? (
                 <Button
-                  label={importing ? 'Importing Into Project…' : `Commit & Import All ${validCount} Units`}
+                  label={
+                    importing
+                      ? 'Importing Into Project…'
+                      : (previewData.updateCount || 0) > 0
+                        ? `Commit & Import (${validCount - (previewData.updateCount || 0)} New, ${previewData.updateCount} Updates)`
+                        : `Commit & Import All ${validCount} Units`
+                  }
                   onPress={handleExecuteImport}
                   disabled={importing}
                   loading={importing}

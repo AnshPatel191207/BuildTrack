@@ -1251,6 +1251,7 @@ export interface ExcelImportPreview {
   validCount?: number;
   errorCount?: number;
   duplicateCount?: number;
+  updateCount?: number;
   errors: {
     rowNumber?: number;
     unitNumber?: string;

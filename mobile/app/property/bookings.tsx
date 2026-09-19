@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshControl, ScrollView, Text, View, Pressable, Modal } from 'react-native';
+import { Alert, RefreshControl, ScrollView, Text, View, Pressable, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -196,6 +196,32 @@ export default function PropertyBookingsScreen() {
     }
   };
 
+  const handleDeleteBooking = (e: any, booking: PropertyBooking) => {
+    e?.stopPropagation?.();
+    const unitNo = (booking.unitId as any)?.unitNumber || 'Unit';
+    const custName = (booking.customerId as any)?.name || 'Customer';
+    Alert.alert(
+      'Delete Booking',
+      `Are you sure you want to delete Booking #${booking.bookingNumber || ''} for ${unitNo} (${custName})?\n\nThis will immediately release ${unitNo} back to available inventory.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Booking',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await propertyService.deleteBooking(booking._id);
+              showToast(`Booking #${booking.bookingNumber || ''} deleted and ${unitNo} released to available`, 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete booking', 'error');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader
@@ -365,11 +391,32 @@ export default function PropertyBookingsScreen() {
                       {new Date(booking.bookingDate).toLocaleDateString('en-IN')}
                     </Text>
                   </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>Actions</Text>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary, marginTop: 2 }}>
-                      Manage →
-                    </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Pressable
+                      onPress={(e) => handleDeleteBooking(e, booking)}
+                      hitSlop={10}
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 5,
+                        borderRadius: radius.sm,
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderWidth: 1,
+                        borderColor: colors.danger,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 3,
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: colors.danger }}>Delete</Text>
+                    </Pressable>
+
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>Actions</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary, marginTop: 2 }}>
+                        Manage →
+                      </Text>
+                    </View>
                   </View>
                 </View>
               </Card>

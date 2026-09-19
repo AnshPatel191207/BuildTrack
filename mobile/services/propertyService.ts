@@ -132,8 +132,8 @@ export const propertyService = {
     return res.data.data;
   },
 
-  deleteAllUnits: async (filters: { projectId?: string; category?: 'flat' | 'shop' | 'all' }) => {
-    const res = await api.post<ApiResponse<{ deletedCount: number; protectedCount: number; message: string }>>(
+  deleteAllUnits: async (filters: { projectId?: string; category?: 'flat' | 'shop' | 'all'; includeBookedSold?: boolean }) => {
+    const res = await api.post<ApiResponse<{ deletedCount: number; preservedCount?: number; cancelledBookingsCount?: number; message: string }>>(
       '/property/units/delete-all',
       filters,
     );
@@ -160,6 +160,11 @@ export const propertyService = {
 
   createCustomer: async (input: Partial<PropertyCustomer>) => {
     const res = await api.post<ApiResponse<PropertyCustomer>>('/property/customers', input);
+    return res.data.data;
+  },
+
+  deleteCustomer: async (customerId: string) => {
+    const res = await api.delete<ApiResponse<{ message: string }>>(`/property/customers/${customerId}`);
     return res.data.data;
   },
 
@@ -229,6 +234,11 @@ export const propertyService = {
     return res.data.data;
   },
 
+  deleteBooking: async (bookingId: string) => {
+    const res = await api.delete<ApiResponse<{ message: string }>>(`/property/bookings/${bookingId}`);
+    return res.data.data;
+  },
+
   // ── Receivables & Payments ─────────────────────────────────────
   listPayments: (filters: { bookingId?: string; customerId?: string; status?: string; projectId?: string } = {}) =>
     api
@@ -252,6 +262,11 @@ export const propertyService = {
 
   generateReceipt: async (paymentId: string) => {
     const res = await api.post<ApiResponse<any>>(`/property/payments/${paymentId}/receipt`);
+    return res.data.data;
+  },
+
+  deletePayment: async (paymentId: string) => {
+    const res = await api.delete<ApiResponse<{ message: string }>>(`/property/payments/${paymentId}`);
     return res.data.data;
   },
 

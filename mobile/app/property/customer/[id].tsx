@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -75,12 +76,57 @@ export default function Customer360Screen() {
     }
   };
 
+  const handleDeleteCustomer = () => {
+    if (!customer) return;
+    Alert.alert(
+      'Delete Customer Profile',
+      `Are you sure you want to delete customer "${customer.name}"?\n\nAny units currently booked or purchased by this buyer will be released back to available inventory.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Customer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await propertyService.deleteCustomer(customer._id);
+              showToast('Customer deleted and assigned units released to available', 'success');
+              router.back();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete customer', 'error');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader
         title="Customer 360° Profile"
         subtitle={customer?.name || 'Buyer Overview'}
         onBack={() => router.back()}
+        right={
+          customer ? (
+            <Pressable
+              onPress={handleDeleteCustomer}
+              hitSlop={8}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: radius.md,
+                borderWidth: 1,
+                borderColor: colors.danger,
+              }}
+            >
+              <Ionicons name="trash-outline" size={15} color={colors.danger} style={{ marginRight: 4 }} />
+              <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>Delete</Text>
+            </Pressable>
+          ) : null
+        }
       />
       <OfflineBanner />
 
@@ -477,6 +523,15 @@ export default function Customer360Screen() {
                 </View>
               </Card>
             )}
+
+            {/* Destructive Action */}
+            <View style={{ marginTop: 16 }}>
+              <Button
+                label="Delete Customer Profile & Release Units"
+                variant="danger"
+                onPress={handleDeleteCustomer}
+              />
+            </View>
           </View>
         )}
       </ScrollView>

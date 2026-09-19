@@ -426,22 +426,15 @@ export async function deleteBooking(req: Req, res: Response) {
   if (!booking || !booking.companyId.equals(user.companyId!)) {
     throw ApiError.notFound('Booking not found.');
   }
-  if (booking.status === 'confirmed' || booking.status === 'sold') {
-    throw ApiError.badRequest('Cancel the booking instead of deleting it.');
-  }
-  const hasPaidPayments = await Payment.exists({ bookingId: booking._id, status: 'paid' });
-  if (hasPaidPayments) {
-    throw ApiError.badRequest(
-      'Cannot delete booking with recorded payment transactions. Financial records must be preserved. Please cancel the booking instead.',
-    );
-  }
+
+  // Delete associated payments, approvals, and release the unit back to available status
   await Promise.all([
-    Payment.deleteMany({ bookingId: booking._id, status: { $ne: 'paid' } }),
+    Payment.deleteMany({ bookingId: booking._id }),
     import('../models/Approval.js').then(({ Approval }) =>
       Approval.deleteMany({ entityType: 'booking', entityId: booking._id }),
     ),
     Unit.updateMany(
-      { currentBookingId: booking._id },
+      { $or: [{ currentBookingId: booking._id }, { _id: booking.unitId }] },
       { $set: { status: 'available', currentCustomerId: null, currentBookingId: null } },
     ),
   ]);
@@ -451,7 +444,7 @@ export async function deleteBooking(req: Req, res: Response) {
     module: 'bookings',
     entityType: 'booking',
     entityId: booking._id,
-    description: `${user.name} deleted booking ${booking.bookingNumber}`,
+    description: `${user.name} deleted booking ${booking.bookingNumber} (status was ${booking.status})`,
   });
-  sendSuccess(res, { id: booking._id }, 'Booking deleted.');
+  sendSuccess(res, { id: booking._id }, `Booking ${booking.bookingNumber || ''} deleted and unit released to available.`);
 }

@@ -240,20 +240,16 @@ export async function deletePayment(req: Req, res: Response) {
   if (!payment || !payment.companyId.equals(user.companyId!)) {
     throw ApiError.notFound('Payment not found.');
   }
-  if (payment.status === 'paid' || payment.receiptNumber) {
-    throw ApiError.badRequest(
-      'Cannot delete a payment that is already marked as paid or has an issued receipt. Financial transactions are immutable.',
-    );
-  }
+
   await payment.deleteOne();
   await logAudit(req, {
     action: 'delete',
     module: 'payments',
     entityType: 'payment',
     entityId: payment._id,
-    description: `${user.name} deleted payment ${payment.paymentNumber}`,
+    description: `${user.name} deleted payment ${payment.paymentNumber} (amount: ₹${payment.amount})`,
   });
-  sendSuccess(res, { id: payment._id }, 'Payment deleted.');
+  sendSuccess(res, { id: payment._id }, `Payment ${payment.paymentNumber} deleted successfully.`);
 }
 
 /** GET /api/payments/receivables — Module 8 dashboard. */

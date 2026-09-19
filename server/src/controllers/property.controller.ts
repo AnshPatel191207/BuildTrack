@@ -446,17 +446,18 @@ export async function deleteUnit(req: Req, res: Response) {
     throw ApiError.notFound('Unit not found.');
   }
 
-  if (['booked', 'sold'].includes(unit.status) || unit.currentBookingId) {
-    throw ApiError.badRequest(`Cannot delete unit ${unit.unitNumber} because it is marked as ${unit.status}. Cancel the booking first.`);
-  }
-
-  const activeBooking = await Booking.findOne({
+  // Cancel any active bookings linked to this unit to maintain data integrity
+  const activeBookings = await Booking.find({
     unitId: unit._id,
     companyId: user.companyId,
     status: { $ne: 'cancelled' },
   });
-  if (activeBooking) {
-    throw ApiError.badRequest(`Cannot delete unit ${unit.unitNumber} because it is linked to active booking ${activeBooking.bookingNumber}.`);
+
+  if (activeBookings.length > 0) {
+    await Booking.updateMany(
+      { unitId: unit._id, companyId: user.companyId, status: { $ne: 'cancelled' } },
+      { $set: { status: 'cancelled', cancellationReason: `Unit ${unit.unitNumber} deleted from inventory by administrator` } },
+    );
   }
 
   await Unit.deleteOne({ _id: unit._id });
@@ -466,10 +467,19 @@ export async function deleteUnit(req: Req, res: Response) {
     module: unit.category === 'shop' ? 'shops' : 'flats',
     entityType: 'unit',
     entityId: unit._id,
-    description: `${user.name} deleted ${unit.category === 'shop' ? 'Shop' : 'Flat'} ${unit.unitNumber}`,
+    description: `${user.name} deleted ${unit.category === 'shop' ? 'Shop' : 'Flat'} ${unit.unitNumber}${unit.status !== 'available' ? ` (was ${unit.status})` : ''}`,
   });
 
-  sendSuccess(res, { deleted: true, unitNumber: unit.unitNumber }, `${unit.category === 'shop' ? 'Shop' : 'Flat'} ${unit.unitNumber} deleted successfully.`);
+  sendSuccess(
+    res,
+    {
+      deleted: true,
+      unitNumber: unit.unitNumber,
+      cancelledBookings: activeBookings.length,
+      previousStatus: unit.status,
+    },
+    `${unit.category === 'shop' ? 'Shop' : 'Flat'} ${unit.unitNumber} deleted successfully.${activeBookings.length > 0 ? ` (${activeBookings.length} associated booking(s) cancelled)` : ''}`,
+  );
 }
 
 export async function deleteAllUnits(req: Req, res: Response) {
@@ -478,7 +488,7 @@ export async function deleteAllUnits(req: Req, res: Response) {
     throw ApiError.forbidden('You do not have permission to delete inventory units.');
   }
 
-  const { projectId, category } = req.body || {};
+  const { projectId, category, includeBookedSold } = req.body || {};
   if (!projectId) {
     throw ApiError.badRequest('Project ID is required.');
   }
@@ -497,49 +507,81 @@ export async function deleteAllUnits(req: Req, res: Response) {
     }
   }
 
-  // Find all units that have active non-cancelled bookings
-  const bookedUnitIds = await Booking.find({
-    companyId: user.companyId,
-    projectId,
-    status: { $ne: 'cancelled' },
-  }).distinct('unitId');
+  const shouldIncludeAll = Boolean(includeBookedSold || req.query.includeBookedSold === 'true');
 
-  // Find count of protected units
-  const protectedFilter: Record<string, unknown> = {
-    ...filter,
-    $or: [
-      { _id: { $in: bookedUnitIds } },
-      { status: { $in: ['booked', 'sold'] } },
-      { currentBookingId: { $ne: null } },
-    ],
-  };
-  const protectedCount = await Unit.countDocuments(protectedFilter);
+  if (shouldIncludeAll) {
+    // Delete ALL units (including booked, sold, reserved)
+    const allUnits = await Unit.find(filter).select('_id unitNumber').lean();
+    const unitIds = allUnits.map((u: any) => u._id);
 
-  // Delete only eligible unbooked/available units
-  const deleteFilter: Record<string, unknown> = {
-    ...filter,
-    _id: { $nin: bookedUnitIds },
-    status: { $nin: ['booked', 'sold'] },
-    currentBookingId: null,
-  };
+    // Cancel all active bookings associated with these units
+    const bookingResult = await Booking.updateMany(
+      { unitId: { $in: unitIds }, companyId: user.companyId, status: { $ne: 'cancelled' } },
+      { $set: { status: 'cancelled', cancellationReason: 'Project units deleted from inventory by administrator' } },
+    );
 
-  const deleteResult = await Unit.deleteMany(deleteFilter);
+    const deleteResult = await Unit.deleteMany(filter);
 
-  await logAudit(req, {
-    action: 'delete_bulk',
-    module: 'inventory',
-    entityType: 'unit',
-    description: `${user.name} deleted ${deleteResult.deletedCount} available units for project ${projectId} (preserved ${protectedCount} booked/sold units)`,
-  });
+    await logAudit(req, {
+      action: 'delete_bulk',
+      module: 'inventory',
+      entityType: 'unit',
+      description: `${user.name} deleted ALL ${deleteResult.deletedCount} units (including booked/sold) for project ${projectId}`,
+    });
 
-  sendSuccess(
-    res,
-    {
-      deletedCount: deleteResult.deletedCount,
-      preservedCount: protectedCount,
-    },
-    `Deleted ${deleteResult.deletedCount} available unit(s).${protectedCount > 0 ? ` ${protectedCount} booked/sold unit(s) were kept safe.` : ''}`,
-  );
+    sendSuccess(
+      res,
+      {
+        deletedCount: deleteResult.deletedCount,
+        cancelledBookingsCount: bookingResult.modifiedCount,
+        includedBookedSold: true,
+      },
+      `Deleted all ${deleteResult.deletedCount} unit(s) successfully.${bookingResult.modifiedCount > 0 ? ` (${bookingResult.modifiedCount} booking(s) cancelled)` : ''}`,
+    );
+  } else {
+    // Delete available units only (preserve booked/sold units)
+    const bookedUnitIds = await Booking.find({
+      companyId: user.companyId,
+      projectId,
+      status: { $ne: 'cancelled' },
+    }).distinct('unitId');
+
+    const protectedFilter: Record<string, unknown> = {
+      ...filter,
+      $or: [
+        { _id: { $in: bookedUnitIds } },
+        { status: { $in: ['booked', 'sold'] } },
+        { currentBookingId: { $ne: null } },
+      ],
+    };
+    const protectedCount = await Unit.countDocuments(protectedFilter);
+
+    const deleteFilter: Record<string, unknown> = {
+      ...filter,
+      _id: { $nin: bookedUnitIds },
+      status: { $nin: ['booked', 'sold'] },
+      currentBookingId: null,
+    };
+
+    const deleteResult = await Unit.deleteMany(deleteFilter);
+
+    await logAudit(req, {
+      action: 'delete_bulk',
+      module: 'inventory',
+      entityType: 'unit',
+      description: `${user.name} deleted ${deleteResult.deletedCount} available units for project ${projectId} (preserved ${protectedCount} booked/sold units)`,
+    });
+
+    sendSuccess(
+      res,
+      {
+        deletedCount: deleteResult.deletedCount,
+        preservedCount: protectedCount,
+        includedBookedSold: false,
+      },
+      `Deleted ${deleteResult.deletedCount} available unit(s).${protectedCount > 0 ? ` ${protectedCount} booked/sold unit(s) were kept safe.` : ''}`,
+    );
+  }
 }
 
 // ── Customer 360° Profile ────────────────────────────────────────

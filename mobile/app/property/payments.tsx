@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshControl, ScrollView, Text, View, Pressable, Modal, Linking } from 'react-native';
+import { Alert, RefreshControl, ScrollView, Text, View, Pressable, Modal, Linking } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -137,6 +137,29 @@ export default function PropertyPaymentsScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDeletePayment = (payment: PropertyPayment) => {
+    Alert.alert(
+      'Delete Payment',
+      `Are you sure you want to delete payment record ${payment.paymentNumber || ''} (₹${Number(payment.amount).toLocaleString('en-IN')})?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await propertyService.deletePayment(payment._id);
+              showToast('Payment deleted successfully', 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete payment', 'error');
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -307,6 +330,25 @@ export default function PropertyPaymentsScreen() {
                   >
                     <Ionicons name="download-outline" size={14} color={colors.text} style={{ marginRight: 4 }} />
                     <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>PDF</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => handleDeletePayment(p)}
+                    hitSlop={8}
+                    style={{
+                      paddingHorizontal: 9,
+                      paddingVertical: 6,
+                      borderRadius: radius.sm,
+                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                      borderWidth: 1,
+                      borderColor: colors.danger,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 3,
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                    <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>Delete</Text>
                   </Pressable>
                 </View>
               </Card>

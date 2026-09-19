@@ -123,18 +123,22 @@ export async function deleteCustomer(req: Req, res: Response) {
   if (!customer || !customer.companyId.equals(user.companyId!)) {
     throw ApiError.notFound('Customer not found.');
   }
-  const hasBooking = await import('../models/Booking.js').then(({ Booking }) =>
-    Booking.exists({ customerId: customer._id }),
+  const { Booking } = await import('../models/Booking.js');
+  const { Payment } = await import('../models/Payment.js');
+  const { Unit } = await import('../models/Unit.js');
+
+  // Release any units currently booked or owned by this customer
+  await Unit.updateMany(
+    { currentCustomerId: customer._id },
+    { $set: { status: 'available', currentCustomerId: null, currentBookingId: null } },
   );
-  if (hasBooking) {
-    throw ApiError.badRequest('This customer is associated with existing bookings and cannot be deleted.');
-  }
-  const hasPayments = await import('../models/Payment.js').then(({ Payment }) =>
-    Payment.exists({ customerId: customer._id }),
-  );
-  if (hasPayments) {
-    throw ApiError.badRequest('This customer has recorded payment transactions and cannot be deleted.');
-  }
+
+  // Clean up customer bookings and payments
+  await Promise.all([
+    Booking.deleteMany({ customerId: customer._id }),
+    Payment.deleteMany({ customerId: customer._id }),
+  ]);
+
   await customer.deleteOne();
   await logAudit(req, {
     action: 'delete',

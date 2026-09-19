@@ -176,21 +176,19 @@ export default function PropertyFlatsScreen() {
   };
 
   const handleDeleteFlat = (flatId: string, unitNum: string, status: string) => {
-    if (status === 'booked' || status === 'sold') {
-      Alert.alert(
-        'Cannot Delete Unit',
-        `Flat ${unitNum} is currently marked as "${status}". Units with active bookings or sales cannot be deleted to preserve financial audit integrity.`,
-      );
-      return;
-    }
+    const isBookedOrSold = status === 'booked' || status === 'sold';
+    const title = isBookedOrSold ? `Delete ${status.toUpperCase()} Flat` : 'Delete Flat';
+    const message = isBookedOrSold
+      ? `Flat ${unitNum} is currently marked as "${status.toUpperCase()}". Deleting it will permanently remove the unit and cancel any associated customer booking records. Are you sure you want to proceed?`
+      : `Are you sure you want to delete Flat ${unitNum}? This action cannot be undone.`;
 
     Alert.alert(
-      'Delete Flat',
-      `Are you sure you want to delete Flat ${unitNum}? This action cannot be undone.`,
+      title,
+      message,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: isBookedOrSold ? 'Delete & Cancel Booking' : 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -213,23 +211,40 @@ export default function PropertyFlatsScreen() {
     }
 
     Alert.alert(
-      'Delete All Flats',
-      'Are you sure you want to delete all available flats in this project? Booked/Sold units with customer records will be safely preserved.',
+      'Delete Flats in Project',
+      'Select deletion scope for residential flats in this project:',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete All Available',
+          text: 'Delete Available Only',
+          onPress: async () => {
+            try {
+              const res = await propertyService.deleteAllUnits({
+                projectId: selectedProjectId,
+                category: 'flat',
+                includeBookedSold: false,
+              });
+              showToast(res.message || `Deleted ${res.deletedCount} available flats`, 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete flats', 'error');
+            }
+          },
+        },
+        {
+          text: 'Delete ALL (Including Booked & Sold)',
           style: 'destructive',
           onPress: async () => {
             try {
               const res = await propertyService.deleteAllUnits({
                 projectId: selectedProjectId,
                 category: 'flat',
+                includeBookedSold: true,
               });
-              showToast(res.message || `Deleted ${res.deletedCount} flats`, 'success');
+              showToast(res.message || `Deleted all ${res.deletedCount} flats`, 'success');
               void reload();
             } catch (err: any) {
-              showToast(err?.response?.data?.message || 'Failed to delete flats', 'error');
+              showToast(err?.response?.data?.message || 'Failed to delete all flats', 'error');
             }
           },
         },
@@ -486,7 +501,7 @@ export default function PropertyFlatsScreen() {
                       <Ionicons
                         name="trash-outline"
                         size={16}
-                        color={flat.status === 'available' ? colors.danger : colors.textFaint}
+                        color={colors.danger}
                       />
                     </Pressable>
                   </View>

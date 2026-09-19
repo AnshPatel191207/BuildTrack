@@ -137,20 +137,23 @@ export async function deleteUnit(req: Req, res: Response) {
   if (!unit || !unit.companyId.equals(user.companyId!)) {
     throw ApiError.notFound('Unit not found.');
   }
-  if (['booked', 'sold'].includes(unit.status)) {
-    throw ApiError.badRequest(
-      `${unit.unitNumber} is ${unit.status}. Cancel its booking before deleting.`,
-    );
-  }
+
+  // Cancel any active bookings linked to this unit to preserve data integrity
+  const { Booking } = await import('../models/Booking.js');
+  await Booking.updateMany(
+    { unitId: unit._id, companyId: user.companyId, status: { $ne: 'cancelled' } },
+    { $set: { status: 'cancelled', cancellationReason: `Unit ${unit.unitNumber} deleted from inventory by administrator` } },
+  );
+
   await unit.deleteOne();
   await logAudit(req, {
     action: 'delete',
     module: 'inventory',
     entityType: 'unit',
     entityId: unit._id,
-    description: `${user.name} deleted unit ${unit.unitNumber}`,
+    description: `${user.name} deleted unit ${unit.unitNumber}${unit.status !== 'available' ? ` (was ${unit.status})` : ''}`,
   });
-  sendSuccess(res, { id: unit._id }, `Unit ${unit.unitNumber} deleted.`);
+  sendSuccess(res, { id: unit._id }, `Unit ${unit.unitNumber} deleted successfully.`);
 }
 
 /** GET /api/units/inventory-summary?projectId= — Module 3 dashboard. */

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -80,6 +81,31 @@ export default function PropertyBookingDetailScreen() {
 
   const totalStagePercentage = Math.round(stages.reduce((sum, s) => sum + (parseFloat(s.percentage) || 0), 0) * 10) / 10;
   const isStagesValid = Math.abs(totalStagePercentage - 100) < 0.1;
+
+  const handleDeleteBooking = () => {
+    if (!booking) return;
+    const unitNo = (booking.unitId as any)?.unitNumber || 'Unit';
+    Alert.alert(
+      'Delete Booking',
+      `Are you sure you want to delete Booking #${booking.bookingNumber || ''} (${unitNo})? This will delete all booking records and immediately release ${unitNo} back to available inventory.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Booking',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await propertyService.deleteBooking(booking._id);
+              showToast('Booking deleted and unit released to available!', 'success');
+              router.back();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete booking', 'error');
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const handleAddStage = () => {
     const remainingPct = Math.max(100 - totalStagePercentage, 0);
@@ -243,6 +269,27 @@ export default function PropertyBookingDetailScreen() {
         title="Booking Details"
         subtitle={booking ? `Unit ${(booking.unitId as any)?.unitNumber || ''} • ${(booking.customerId as any)?.name || ''}` : 'Booking'}
         onBack={() => router.back()}
+        right={
+          booking ? (
+            <Pressable
+              onPress={handleDeleteBooking}
+              hitSlop={8}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: radius.md,
+                borderWidth: 1,
+                borderColor: colors.danger,
+              }}
+            >
+              <Ionicons name="trash-outline" size={15} color={colors.danger} style={{ marginRight: 4 }} />
+              <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>Delete</Text>
+            </Pressable>
+          ) : null
+        }
       />
       <OfflineBanner />
 
@@ -456,10 +503,17 @@ export default function PropertyBookingDetailScreen() {
             </Card>
 
             {/* Action Bar */}
-            <Button
-              label="Record Payment & Issue Receipt"
-              onPress={() => router.push(`/property/payments?bookingId=${booking._id}&customerId=${(booking.customerId as any)?._id}` as any)}
-            />
+            <View style={{ gap: 10 }}>
+              <Button
+                label="Record Payment & Issue Receipt"
+                onPress={() => router.push(`/property/payments?bookingId=${booking._id}&customerId=${(booking.customerId as any)?._id}` as any)}
+              />
+              <Button
+                label="Delete Booking (Release Unit)"
+                variant="danger"
+                onPress={handleDeleteBooking}
+              />
+            </View>
           </View>
         )}
       </ScrollView>

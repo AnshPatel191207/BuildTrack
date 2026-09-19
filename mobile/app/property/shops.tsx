@@ -157,21 +157,19 @@ export default function PropertyShopsScreen() {
   };
 
   const handleDeleteShop = (shopId: string, unitNum: string, status: string) => {
-    if (status === 'booked' || status === 'sold') {
-      Alert.alert(
-        'Cannot Delete Unit',
-        `Shop ${unitNum} is currently marked as "${status}". Units with active bookings or sales cannot be deleted to preserve financial audit integrity.`,
-      );
-      return;
-    }
+    const isBookedOrSold = status === 'booked' || status === 'sold';
+    const title = isBookedOrSold ? `Delete ${status.toUpperCase()} Shop` : 'Delete Shop';
+    const message = isBookedOrSold
+      ? `Commercial Shop ${unitNum} is currently marked as "${status.toUpperCase()}". Deleting it will permanently remove the unit and cancel any associated customer booking records. Are you sure you want to proceed?`
+      : `Are you sure you want to delete Commercial Shop ${unitNum}? This action cannot be undone.`;
 
     Alert.alert(
-      'Delete Shop',
-      `Are you sure you want to delete Commercial Shop ${unitNum}? This action cannot be undone.`,
+      title,
+      message,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: isBookedOrSold ? 'Delete & Cancel Booking' : 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -194,23 +192,40 @@ export default function PropertyShopsScreen() {
     }
 
     Alert.alert(
-      'Delete All Commercial Shops',
-      'Are you sure you want to delete all available shops in this project? Booked/Sold units with customer records will be safely preserved.',
+      'Delete Commercial Units in Project',
+      'Select deletion scope for commercial shops in this project:',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete All Available',
+          text: 'Delete Available Only',
+          onPress: async () => {
+            try {
+              const res = await propertyService.deleteAllUnits({
+                projectId: selectedProjectId,
+                category: 'shop',
+                includeBookedSold: false,
+              });
+              showToast(res.message || `Deleted ${res.deletedCount} available commercial units`, 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete shops', 'error');
+            }
+          },
+        },
+        {
+          text: 'Delete ALL (Including Booked & Sold)',
           style: 'destructive',
           onPress: async () => {
             try {
               const res = await propertyService.deleteAllUnits({
                 projectId: selectedProjectId,
                 category: 'shop',
+                includeBookedSold: true,
               });
-              showToast(res.message || `Deleted ${res.deletedCount} commercial units`, 'success');
+              showToast(res.message || `Deleted all ${res.deletedCount} commercial units`, 'success');
               void reload();
             } catch (err: any) {
-              showToast(err?.response?.data?.message || 'Failed to delete shops', 'error');
+              showToast(err?.response?.data?.message || 'Failed to delete all shops', 'error');
             }
           },
         },
@@ -423,7 +438,7 @@ export default function PropertyShopsScreen() {
                       <Ionicons
                         name="trash-outline"
                         size={16}
-                        color={shop.status === 'available' ? colors.danger : colors.textFaint}
+                        color={colors.danger}
                       />
                     </Pressable>
                   </View>

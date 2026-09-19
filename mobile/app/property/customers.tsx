@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RefreshControl, ScrollView, Text, View, Pressable, Modal, Linking } from 'react-native';
+import { Alert, RefreshControl, ScrollView, Text, View, Pressable, Modal, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -115,6 +115,30 @@ export default function PropertyCustomersScreen() {
       default:
         return <Badge tone="neutral" label={stage || 'Customer'} />;
     }
+  };
+
+  const handleDeleteCustomer = (e: any, customer: PropertyCustomer) => {
+    e?.stopPropagation?.();
+    Alert.alert(
+      'Delete Customer',
+      `Are you sure you want to delete customer "${customer.name}"?\n\nAny units booked or purchased by this customer will be released back to available inventory.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Customer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await propertyService.deleteCustomer(customer._id);
+              showToast('Customer deleted and assigned units released to available', 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete customer', 'error');
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -256,11 +280,32 @@ export default function PropertyCustomersScreen() {
                       {(c.aadhaar || c.aadhaarNumber) ? `•••• ${(c.aadhaar || c.aadhaarNumber)!.slice(-4)}` : '—'}
                     </Text>
                   </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>Customer 360°</Text>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary, marginTop: 2 }}>
-                      View Profile →
-                    </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Pressable
+                      onPress={(e) => handleDeleteCustomer(e, c)}
+                      hitSlop={8}
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 5,
+                        borderRadius: radius.sm,
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderWidth: 1,
+                        borderColor: colors.danger,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 3,
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: colors.danger }}>Delete</Text>
+                    </Pressable>
+
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ fontSize: 11, color: colors.textFaint, textTransform: 'uppercase' }}>Customer 360°</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary, marginTop: 2 }}>
+                        View Profile →
+                      </Text>
+                    </View>
                   </View>
                 </View>
               </Card>

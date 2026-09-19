@@ -57,7 +57,6 @@ export async function migrateMultiProjectBranding() {
     if (!p.receiptConfig) {
       p.receiptConfig = {
         showLogo: true,
-        showQr: true,
         showGst: true,
         showRera: true,
         showCustomerAddress: true,
@@ -125,7 +124,6 @@ export async function migrateMultiProjectBranding() {
           { label: 'Witness 2', required: true },
         ],
         showLogo: true,
-        showQr: true,
         showRera: true,
         showGst: true,
         watermarkText: p.name.toUpperCase(),

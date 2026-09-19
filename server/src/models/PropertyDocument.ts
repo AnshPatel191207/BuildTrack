@@ -14,7 +14,6 @@ export interface PropertyDocumentDocument extends mongoose.HydratedDocument<any>
   templateId?: Types.ObjectId | null;
   renderedContent?: string | null;
   pdfUrl?: string | null;
-  qrCodeUrl?: string | null;
   status: PropertyDocStatus;
   registrationDetails?: {
     registrationNumber?: string | null;
@@ -44,7 +43,6 @@ const propertyDocumentSchema = new Schema<PropertyDocumentDocument>(
     templateId: { type: Schema.Types.ObjectId, ref: 'DocumentTemplate', default: null },
     renderedContent: { type: String, default: null },
     pdfUrl: { type: String, default: null },
-    qrCodeUrl: { type: String, default: null },
     status: {
       type: String,
       enum: ['draft', 'generated', 'signed', 'registered'],

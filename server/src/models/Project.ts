@@ -55,7 +55,6 @@ export interface ProjectDocument extends mongoose.HydratedDocument<any> {
   };
   receiptConfig?: {
     showLogo: boolean;
-    showQr: boolean;
     showGst: boolean;
     showRera: boolean;
     showCustomerAddress: boolean;
@@ -165,7 +164,6 @@ const projectSchema = new Schema<ProjectDocument>(
     },
     receiptConfig: {
       showLogo: { type: Boolean, default: true },
-      showQr: { type: Boolean, default: true },
       showGst: { type: Boolean, default: true },
       showRera: { type: Boolean, default: true },
       showCustomerAddress: { type: Boolean, default: true },

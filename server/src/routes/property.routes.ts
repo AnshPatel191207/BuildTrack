@@ -85,6 +85,16 @@ router.post(
   validate({ body: floorBodySchema }),
   asyncHandler(property.createFloor),
 );
+router.delete(
+  '/towers/:id',
+  requirePermission('canManageTowers', 'canManageStructure'),
+  asyncHandler(property.deleteTower),
+);
+router.delete(
+  '/floors/:id',
+  requirePermission('canManageFloors', 'canManageStructure'),
+  asyncHandler(property.deleteFloor),
+);
 
 // ── Flats & Shops ─────────────────────────────────────────────────
 router.get('/flats', asyncHandler(property.listFlats));
@@ -203,6 +213,11 @@ router.post(
   requirePermission('canGenerateReceipts', 'canManagePayments'),
   asyncHandler(docs.generatePaymentReceipt),
 );
+router.delete(
+  '/payments/:paymentId/receipt',
+  requirePermission('canManagePayments', 'canGenerateReceipts'),
+  asyncHandler(docs.deletePaymentReceipt),
+);
 router.get('/payments/:id', asyncHandler(payments.getPayment));
 router.put(
   '/payments/:id',
@@ -241,6 +256,11 @@ router.get('/documents/variables', asyncHandler(docs.listTemplateVariables));
 router.get('/documents/receipts/:paymentId/pdf', asyncHandler(docs.streamPaymentReceiptPdf));
 router.get('/documents/:id/pdf', asyncHandler(docs.streamPropertyDocumentPdf));
 router.get('/documents/:id', asyncHandler(docs.getPropertyDocument));
+router.delete(
+  '/documents/:id',
+  requirePermission('canManageDocuments'),
+  asyncHandler(docs.deletePropertyDocument),
+);
 
 router.get('/templates', asyncHandler(docs.listDocumentTemplates));
 router.post(

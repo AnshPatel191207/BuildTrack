@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RefreshControl, ScrollView, Text, View, Pressable, Linking, Modal } from 'react-native';
+import { Alert, RefreshControl, ScrollView, Text, View, Pressable, Linking, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -85,6 +85,29 @@ export default function PropertyBanakhatScreen() {
     } catch {
       showToast('Could not open Banakhat PDF', 'error');
     }
+  };
+
+  const handleDeleteDocument = (doc: PropertyDocumentItem) => {
+    Alert.alert(
+      'Delete Agreement',
+      `Are you sure you want to delete Banakhat document #${doc.documentNumber || doc._id}? This will remove the document file and unlink it from the booking.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await propertyService.deleteDocument(doc._id);
+              showToast('Agreement deleted', 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete agreement', 'error');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -179,20 +202,34 @@ export default function PropertyBanakhatScreen() {
                       RERA Schedule C
                     </Text>
                   </View>
-                  <View style={{ alignItems: 'flex-end' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Pressable
+                      onPress={() => handleDeleteDocument(doc)}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: colors.dangerSoft,
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: radius.sm,
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={colors.danger} style={{ marginRight: 4 }} />
+                      <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>Delete</Text>
+                    </Pressable>
                     <Pressable
                       onPress={() => handleDownload(doc._id)}
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
                         backgroundColor: colors.primary,
-                        paddingHorizontal: 12,
+                        paddingHorizontal: 10,
                         paddingVertical: 6,
                         borderRadius: radius.sm,
                       }}
                     >
                       <Ionicons name="download-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Download PDF</Text>
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>PDF</Text>
                     </Pressable>
                   </View>
                 </View>

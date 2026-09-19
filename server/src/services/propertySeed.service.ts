@@ -266,7 +266,7 @@ export async function seedPropertyDemoData(companyId: any, userId?: any) {
     await booking3Unit.save();
   }
 
-  // 8. Ensure Payments with Official Receipts & QR Codes
+  // 8. Ensure Payments with Official Receipts
   let payment1 = await Payment.findOne({ companyId, bookingId: booking1._id, paymentType: 'booking_amount' });
   if (!payment1) {
     const receiptNo = await nextReceiptNumber(companyId);

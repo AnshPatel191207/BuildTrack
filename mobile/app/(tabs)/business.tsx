@@ -153,14 +153,14 @@ const ALL_HUB_ITEMS: HubItem[] = [
   },
   {
     id: 'prop-receipts',
-    label: 'Official Receipts (QR)',
-    sublabel: 'Instant PDF receipts & verification',
+    label: 'Official Receipts',
+    sublabel: 'Instant official PDF receipts',
     icon: 'receipt-outline',
     route: '/property/receipts',
     category: 'property',
     tag: 'Instant PDF',
     tone: 'navy',
-    keywords: ['receipt', 'pdf', 'qr code', 'payment slip', 'rcp'],
+    keywords: ['receipt', 'pdf', 'payment slip', 'rcp'],
     perm: ['canGenerateReceipts', 'canManagePayments'],
   },
   {
@@ -702,14 +702,14 @@ export default function BusinessScreen() {
                 marginTop: 4,
               }}
             >
-              Track schemes, units, RERA legal agreements (Banakhat), conveyance deeds & instant QR receipts.
+              Track schemes, units, RERA legal agreements (Banakhat), conveyance deeds & official receipts.
             </Text>
 
             <View style={{ flexDirection: 'row', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
               {[
                 { label: 'Flats & Shops', route: '/property/flats' },
                 { label: 'Banakhat Draft', route: '/property/banakhat' },
-                { label: 'QR Receipts', route: '/property/receipts' },
+                { label: 'Receipts', route: '/property/receipts' },
                 { label: 'Excel Import', route: '/property/import' },
               ].map((chip) => (
                 <Pressable

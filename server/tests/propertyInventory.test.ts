@@ -73,4 +73,24 @@ describe('Real Estate Excel Template & Import Exact Columns', () => {
     expect(normalizedHeaders).toEqual(expectedHeaders);
     expect(rows.length).toBeGreaterThan(10);
   });
+
+  it('generates official PDF receipt without QR code dependency', async () => {
+    const { generateReceiptPdf } = await import('../src/services/pdfGenerator.service');
+    const pdfResult = await generateReceiptPdf({
+      receiptNumber: 'RCP-2026-000099',
+      paymentDate: new Date(),
+      companyName: 'Santora Builders Ltd',
+      customerName: 'Kishore Patel',
+      customerPhone: '9876543210',
+      projectName: 'Santora Heights',
+      unitNumber: 'A-101',
+      paymentAmount: 500000,
+      paymentMode: 'cheque',
+    });
+
+    expect(pdfResult.filePath).toBeDefined();
+    expect(pdfResult.relativeUrl).toBeDefined();
+    expect(pdfResult.buffer).toBeDefined();
+    expect(pdfResult.buffer.length).toBeGreaterThan(500);
+  });
 });

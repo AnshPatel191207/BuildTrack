@@ -262,8 +262,8 @@ describe.skipIf(skip)('Property ERP End-to-End Test Suite', () => {
   });
 
   // ── 4. Payments & Auto Receipt Generation ──────────────────────────
-  describe('Payments & Auto Receipt Generation (RCP-YYYY-000001 & QR)', () => {
-    it('records a payment and generates an official numbered receipt with QR', async () => {
+  describe('Payments & Auto Receipt Generation (RCP-YYYY-000001)', () => {
+    it('records a payment and generates an official numbered receipt', async () => {
       const payRes = await request(app)
         .post('/api/payments')
         .set(authHeader(ownerToken))
@@ -293,7 +293,6 @@ describe.skipIf(skip)('Property ERP End-to-End Test Suite', () => {
       expect(receiptRes.status).toBe(201);
       expect(receiptRes.body.success).toBe(true);
       expect(receiptRes.body.data.receiptNumber).toMatch(/^RCP-\d{4}-\d{6}$/);
-      expect(receiptRes.body.data.verificationQrCode).toBeDefined();
       expect(receiptRes.body.data.amountInWords).toBeDefined();
     });
   });

@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
-import QRCode from 'qrcode';
 import { ApiError, sendCreated, sendSuccess } from '../utils/apiResponse';
 import { Payment, nextReceiptNumber } from '../models/Payment';
 import { Booking } from '../models/Booking';
@@ -122,7 +121,6 @@ export async function generatePaymentReceipt(req: Req, res: Response) {
     secondaryColor: projectTheme.secondary,
     watermarkText: receiptConfig.watermarkText || project?.name,
     showLogo: receiptConfig.showLogo ?? true,
-    showQr: receiptConfig.showQr ?? true,
     showGst: receiptConfig.showGst ?? true,
     showRera: receiptConfig.showRera ?? true,
     showCustomerAddress: receiptConfig.showCustomerAddress ?? true,
@@ -145,16 +143,10 @@ export async function generatePaymentReceipt(req: Req, res: Response) {
     description: `${user.name} generated receipt ${payment.receiptNumber} for payment of ₹${payment.amount}`,
   });
 
-  const verificationQrCode = await QRCode.toDataURL(
-    `BuildTrack Receipt: ${payment.receiptNumber} | Amount: ₹${payment.amount} | Date: ${new Date(payment.paidDate || payment.createdAt).toLocaleDateString('en-IN')}`,
-    { width: 150, margin: 1 },
-  );
-
   sendCreated(res, {
     paymentId: payment._id,
     receiptNumber: payment.receiptNumber,
     receiptPdfUrl: payment.receiptPdfUrl,
-    verificationQrCode,
     amountInWords: numberToWordsINR(payment.amount),
   }, `Receipt ${payment.receiptNumber} generated.`);
 }
@@ -281,7 +273,6 @@ export async function generateBanakhatDocument(req: Req, res: Response) {
     secondaryColor: projectTheme.secondary,
     watermarkText: customTemplate?.watermarkText || project?.name,
     showLogo: customTemplate?.showLogo ?? true,
-    showQr: customTemplate?.showQr ?? true,
     showRera: customTemplate?.showRera ?? true,
     signatures: customTemplate?.signatures?.length ? customTemplate.signatures : [
       { role: 'promoter', label: `For ${projectBranding.developerName || project?.builderName || company?.name}`, signerName: 'Authorized Signatory' },
@@ -465,7 +456,6 @@ export async function generateDastavejDocument(req: Req, res: Response) {
     secondaryColor: projectTheme.secondary,
     watermarkText: customTemplate?.watermarkText || project?.name,
     showLogo: customTemplate?.showLogo ?? true,
-    showQr: customTemplate?.showQr ?? true,
     showRera: customTemplate?.showRera ?? true,
     signatures: customTemplate?.signatures?.length ? customTemplate.signatures : [
       { role: 'vendor', label: `For ${projectBranding.developerName || project?.builderName || company?.name}`, signerName: 'Authorized Signatory' },
@@ -596,7 +586,6 @@ export async function previewReceiptPdf(req: Req, res: Response) {
     secondaryColor: body.secondaryColor || theme.secondary || '#17263B',
     watermarkText: receiptConfig.watermarkText || project?.name,
     showLogo: receiptConfig.showLogo ?? true,
-    showQr: receiptConfig.showQr ?? true,
     showGst: receiptConfig.showGst ?? true,
     showRera: receiptConfig.showRera ?? true,
     showCustomerAddress: receiptConfig.showCustomerAddress ?? true,
@@ -779,5 +768,86 @@ export async function streamPropertyDocumentPdf(req: Req, res: Response) {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="${doc.documentNumber}.pdf"`);
   res.send(buffer);
+}
+
+export async function deletePropertyDocument(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  if (!hasPermission(user.role, 'canManageDocuments')) {
+    throw ApiError.forbidden('You do not have permission to delete documents.');
+  }
+
+  const docId = req.params.id || req.params.docId;
+  const doc = await PropertyDocument.findOne({ _id: docId, companyId: user.companyId });
+  if (!doc) throw ApiError.notFound('Property document not found.');
+
+  // Unlink from booking if linked
+  if (doc.bookingId) {
+    await Booking.updateOne(
+      { _id: doc.bookingId },
+      {
+        $unset: {
+          ...(doc.documentType === 'banakhat' ? { banakhatDocumentId: 1 } : {}),
+          ...(doc.documentType === 'dastavej' ? { dastavejDocumentId: 1 } : {}),
+        },
+      },
+    );
+  }
+
+  // Remove file from disk if present
+  if (doc.pdfUrl) {
+    try {
+      const filePath = path.resolve(process.cwd(), doc.pdfUrl.replace(/^\//, ''));
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch {}
+  }
+
+  await doc.deleteOne();
+
+  await logAudit(req, {
+    action: 'delete',
+    module: 'documents',
+    entityType: 'property_document',
+    entityId: doc._id,
+    description: `${user.name} deleted document ${doc.documentNumber} (${doc.title})`,
+  });
+
+  sendSuccess(res, { id: doc._id }, `Document ${doc.documentNumber} deleted successfully.`);
+}
+
+export async function deletePaymentReceipt(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  if (!hasPermission(user.role, 'canManagePayments') && !hasPermission(user.role, 'canGenerateReceipts')) {
+    throw ApiError.forbidden('You do not have permission to delete receipts.');
+  }
+
+  const paymentId = req.params.paymentId || req.params.id;
+  const payment = await Payment.findOne({ _id: paymentId, companyId: user.companyId });
+  if (!payment) throw ApiError.notFound('Payment not found.');
+
+  if (payment.receiptPdfUrl) {
+    try {
+      const filePath = path.resolve(process.cwd(), payment.receiptPdfUrl.replace(/^\//, ''));
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch {}
+  }
+
+  const oldReceiptNo = payment.receiptNumber;
+  payment.receiptNumber = null as any;
+  payment.receiptPdfUrl = null as any;
+  await payment.save();
+
+  await logAudit(req, {
+    action: 'receipt_deleted',
+    module: 'receipts',
+    entityType: 'payment',
+    entityId: payment._id,
+    description: `${user.name} deleted receipt ${oldReceiptNo || ''} for payment ${payment.paymentNumber}`,
+  });
+
+  sendSuccess(res, { paymentId: payment._id }, `Receipt ${oldReceiptNo || ''} deleted successfully.`);
 }
 

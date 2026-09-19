@@ -266,6 +266,90 @@ export async function createFloor(req: Req, res: Response) {
   sendCreated(res, floor, 'Floor created.');
 }
 
+export async function deleteTower(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  if (!hasPermission(user.role, 'canManageStructure') && !hasPermission(user.role, 'canManageTowers')) {
+    throw ApiError.forbidden('You do not have permission to delete towers.');
+  }
+
+  const { id } = req.params;
+  const tower = await ProjectNode.findOne({
+    _id: id,
+    companyId: user.companyId,
+    nodeType: { $in: ['tower', 'block', 'custom'] },
+  });
+  if (!tower) throw ApiError.notFound('Tower not found.');
+
+  // Find all child floors and all units belonging to this tower
+  const floors = await ProjectNode.find({ parentId: tower._id, companyId: user.companyId });
+  const floorIds = floors.map((f: any) => f._id);
+  const allNodeIds = [tower._id, ...floorIds];
+
+  const units = await Unit.find({
+    companyId: user.companyId,
+    $or: [{ blockId: tower._id }, { towerId: tower._id }, { floorId: { $in: floorIds } }],
+  }).select('_id');
+  const unitIds = units.map((u: any) => u._id);
+
+  if (unitIds.length > 0) {
+    await Booking.updateMany(
+      { unitId: { $in: unitIds }, companyId: user.companyId, status: { $ne: 'cancelled' } },
+      { $set: { status: 'cancelled', cancellationReason: `Tower ${tower.name} deleted by administrator` } },
+    );
+    await Unit.deleteMany({ _id: { $in: unitIds } });
+  }
+
+  await ProjectNode.deleteMany({ _id: { $in: allNodeIds } });
+
+  await logAudit(req, {
+    action: 'delete',
+    module: 'towers',
+    entityType: 'project_node',
+    entityId: tower._id,
+    description: `${user.name} deleted tower ${tower.name} with ${floors.length} floors and ${unitIds.length} units`,
+  });
+
+  sendSuccess(res, { id: tower._id, deletedFloors: floors.length, deletedUnits: unitIds.length }, `Tower ${tower.name} deleted successfully.`);
+}
+
+export async function deleteFloor(req: Req, res: Response) {
+  const user = req.user! as AuthUser;
+  if (!hasPermission(user.role, 'canManageStructure') && !hasPermission(user.role, 'canManageFloors')) {
+    throw ApiError.forbidden('You do not have permission to delete floors.');
+  }
+
+  const { id } = req.params;
+  const floor = await ProjectNode.findOne({
+    _id: id,
+    companyId: user.companyId,
+    nodeType: 'floor',
+  });
+  if (!floor) throw ApiError.notFound('Floor not found.');
+
+  const units = await Unit.find({ companyId: user.companyId, floorId: floor._id }).select('_id');
+  const unitIds = units.map((u: any) => u._id);
+
+  if (unitIds.length > 0) {
+    await Booking.updateMany(
+      { unitId: { $in: unitIds }, companyId: user.companyId, status: { $ne: 'cancelled' } },
+      { $set: { status: 'cancelled', cancellationReason: `Floor ${floor.name} deleted by administrator` } },
+    );
+    await Unit.deleteMany({ _id: { $in: unitIds } });
+  }
+
+  await floor.deleteOne();
+
+  await logAudit(req, {
+    action: 'delete',
+    module: 'floors',
+    entityType: 'project_node',
+    entityId: floor._id,
+    description: `${user.name} deleted floor ${floor.name} with ${unitIds.length} units`,
+  });
+
+  sendSuccess(res, { id: floor._id, deletedUnits: unitIds.length }, `Floor ${floor.name} deleted successfully.`);
+}
+
 // ── Flats & Shops ────────────────────────────────────────────────
 
 export async function listFlats(req: Req, res: Response) {

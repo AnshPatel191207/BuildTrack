@@ -76,6 +76,52 @@ export default function Customer360Screen() {
     }
   };
 
+  const handleDeleteReceipt = (paymentId: string, receiptNumber?: string | null) => {
+    Alert.alert(
+      'Delete Receipt',
+      `Are you sure you want to delete receipt #${receiptNumber || paymentId}? This will remove the receipt PDF and reset receipt status on the payment record.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await propertyService.deleteReceipt(paymentId);
+              showToast('Receipt deleted successfully', 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete receipt', 'error');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteDocument = (docId: string, docNumber?: string | null) => {
+    Alert.alert(
+      'Delete Document',
+      `Are you sure you want to delete document #${docNumber || docId}? This will delete the legal document record and file.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await propertyService.deleteDocument(docId);
+              showToast('Document deleted successfully', 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete document', 'error');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleDeleteCustomer = () => {
     if (!customer) return;
     Alert.alert(
@@ -413,6 +459,7 @@ export default function Customer360Screen() {
                         style={{
                           flexDirection: 'row',
                           justifyContent: 'flex-end',
+                          alignItems: 'center',
                           gap: 8,
                           marginTop: 12,
                           paddingTop: 10,
@@ -421,18 +468,32 @@ export default function Customer360Screen() {
                         }}
                       >
                         <Pressable
+                          onPress={() => handleDeleteReceipt(r._id, r.receiptNumber)}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: colors.dangerSoft,
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: radius.sm,
+                          }}
+                        >
+                          <Ionicons name="trash-outline" size={14} color={colors.danger} style={{ marginRight: 4 }} />
+                          <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>Delete</Text>
+                        </Pressable>
+                        <Pressable
                           onPress={() => handleDownloadReceipt(r._id)}
                           style={{
                             flexDirection: 'row',
                             alignItems: 'center',
                             backgroundColor: colors.primary,
-                            paddingHorizontal: 12,
+                            paddingHorizontal: 10,
                             paddingVertical: 6,
                             borderRadius: radius.sm,
                           }}
                         >
                           <Ionicons name="download-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
-                          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Download PDF</Text>
+                          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>PDF</Text>
                         </Pressable>
                       </View>
                     </Card>
@@ -470,12 +531,46 @@ export default function Customer360Screen() {
                         />
                       </View>
 
-                      <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }}>
-                        <Button
-                          label="Download Legal PDF"
-                          size="sm"
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'flex-end',
+                          alignItems: 'center',
+                          gap: 8,
+                          marginTop: 12,
+                          paddingTop: 10,
+                          borderTopWidth: 1,
+                          borderColor: colors.border,
+                        }}
+                      >
+                        <Pressable
+                          onPress={() => handleDeleteDocument(doc._id, doc.documentNumber)}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: colors.dangerSoft,
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: radius.sm,
+                          }}
+                        >
+                          <Ionicons name="trash-outline" size={14} color={colors.danger} style={{ marginRight: 4 }} />
+                          <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>Delete</Text>
+                        </Pressable>
+                        <Pressable
                           onPress={() => handleDownloadDocument(doc._id)}
-                        />
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: colors.primary,
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: radius.sm,
+                          }}
+                        >
+                          <Ionicons name="download-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
+                          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>PDF</Text>
+                        </Pressable>
                       </View>
                     </Card>
                   ))

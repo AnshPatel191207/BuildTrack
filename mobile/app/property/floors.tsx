@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshControl, ScrollView, Text, View, Pressable, Modal } from 'react-native';
+import { Alert, RefreshControl, ScrollView, Text, View, Pressable, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -97,6 +97,29 @@ export default function PropertyFloorsScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDeleteFloor = (floor: PropertyFloor) => {
+    Alert.alert(
+      'Delete Floor Level',
+      `Are you sure you want to delete "${floor.name || `Floor ${floor.floorNumber}`}"?\n\nThis will permanently remove this floor level and its associated units.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await propertyService.deleteFloor(floor._id);
+              showToast(`Floor "${floor.name || floor.floorNumber}" deleted successfully`, 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete floor', 'error');
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -247,6 +270,25 @@ export default function PropertyFloorsScreen() {
                     >
                       <Ionicons name="grid-outline" size={14} color={colors.primary} style={{ marginRight: 4 }} />
                       <Text style={{ fontSize: 12, fontWeight: '600', color: colors.primary }}>View Units</Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={() => handleDeleteFloor(floor)}
+                      hitSlop={8}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        paddingHorizontal: 8,
+                        paddingVertical: 6,
+                        borderRadius: radius.sm,
+                        borderWidth: 1,
+                        borderColor: colors.danger,
+                        gap: 3,
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.danger }}>Delete</Text>
                     </Pressable>
                   </View>
                 </View>

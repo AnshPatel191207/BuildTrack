@@ -152,7 +152,6 @@ export const templateBodySchema = z.object({
   clauses: z.array(templateClauseSchema).optional(),
   termsAndConditions: z.array(z.string()).optional(),
   showLogo: z.boolean().optional(),
-  showQr: z.boolean().optional(),
   showRera: z.boolean().optional(),
   showGst: z.boolean().optional(),
   watermarkText: z.string().optional().nullable(),
@@ -195,7 +194,6 @@ export const projectThemeBodySchema = z.object({
 
 export const projectReceiptConfigBodySchema = z.object({
   showLogo: z.boolean().optional(),
-  showQr: z.boolean().optional(),
   showGst: z.boolean().optional(),
   showRera: z.boolean().optional(),
   showCustomerAddress: z.boolean().optional(),

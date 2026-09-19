@@ -19,7 +19,6 @@ interface Props {
   secondaryColor?: string;
   watermarkText?: string | null;
   showLogo?: boolean;
-  showQr?: boolean;
   showGst?: boolean;
   showRera?: boolean;
   showCustomerAddress?: boolean;
@@ -42,7 +41,6 @@ export function LiveReceiptCanvas({
   secondaryColor = '#1F2937',
   watermarkText,
   showLogo = true,
-  showQr = true,
   showGst = true,
   showRera = true,
   showCustomerAddress = true,

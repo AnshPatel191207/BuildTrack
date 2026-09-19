@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RefreshControl, ScrollView, Text, View, Pressable, Linking, Share } from 'react-native';
+import { Alert, RefreshControl, ScrollView, Text, View, Pressable, Linking, Share } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -31,15 +31,41 @@ export default function PropertyReceiptsScreen() {
     setGeneratingReceiptId(paymentId);
     try {
       const res = await propertyService.generateReceipt(paymentId);
-      showToast(`Official Receipt ${res?.receiptNumber || ''} generated!`, 'success');
+      showToast('Official receipt generated successfully!', 'success');
       void reload();
-      const url = propertyService.getReceiptPdfUrl(paymentId);
-      void Linking.openURL(url);
+
+      if (res?.receiptPdfUrl || paymentId) {
+        const url = propertyService.getReceiptPdfUrl(paymentId);
+        void Linking.openURL(url);
+      }
     } catch (err: any) {
       showToast(err?.response?.data?.message || 'Failed to generate receipt', 'error');
     } finally {
       setGeneratingReceiptId(null);
     }
+  };
+
+  const handleDeleteReceipt = (paymentId: string, receiptNumber?: string | null) => {
+    Alert.alert(
+      'Delete Receipt',
+      `Are you sure you want to delete receipt ${receiptNumber || ''}?\n\nThis will remove the official issued receipt and allow you to regenerate it if needed.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await propertyService.deleteReceipt(paymentId);
+              showToast('Receipt deleted successfully', 'success');
+              void reload();
+            } catch (err: any) {
+              showToast(err?.response?.data?.message || 'Failed to delete receipt', 'error');
+            }
+          },
+        },
+      ],
+    );
   };
 
   const {
@@ -55,12 +81,12 @@ export default function PropertyReceiptsScreen() {
   );
 
   const filteredReceipts = (payments || []).filter((p) => {
-    if (p.status !== 'paid' && !p.receiptNumber) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    const rNo = (p.receiptNumber || p.paymentNumber || '').toLowerCase();
-    const custName = ((p.customerId as any)?.name || '').toLowerCase();
-    return rNo.includes(q) || custName.includes(q);
+    const customer = ((p.customerId as any)?.name || '').toLowerCase();
+    const receipt = (p.receiptNumber || '').toLowerCase();
+    const payNum = (p.paymentNumber || '').toLowerCase();
+    return customer.includes(q) || receipt.includes(q) || payNum.includes(q);
   });
 
   const handleDownload = (paymentId: string) => {
@@ -76,12 +102,12 @@ export default function PropertyReceiptsScreen() {
     try {
       const url = propertyService.getReceiptPdfUrl(receipt._id);
       await Share.share({
-        message: `BuildTrack Payment Receipt #${receipt.receiptNumber || 'Receipt'} for ${formatCurrency(receipt.amount)}. Download link: ${url}`,
-        url,
         title: `Payment Receipt ${receipt.receiptNumber || ''}`,
+        message: `Payment Receipt ${receipt.receiptNumber || ''} for amount ${formatCurrency(receipt.amount)}: ${url}`,
+        url,
       });
     } catch {
-      showToast('Could not share receipt', 'error');
+      // Ignored
     }
   };
 
@@ -89,7 +115,7 @@ export default function PropertyReceiptsScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScreenHeader
         title="Payment Receipts"
-        subtitle="Official builder receipts with QR verification"
+        subtitle="Official builder payment receipts & PDF documents"
         large
         onBack={() => router.back()}
         right={
@@ -165,31 +191,16 @@ export default function PropertyReceiptsScreen() {
                   </Text>
                 </View>
 
-                {/* QR Code & Verification Status */}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 6,
-                    marginTop: 10,
-                    paddingTop: 10,
-                    borderTopWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                >
-                  <Ionicons name="qr-code-outline" size={14} color={colors.primary} />
-                  <Text style={{ fontSize: 11, color: colors.textMuted }}>
-                    Tamper-proof digitally signed receipt with QR verification
-                  </Text>
-                </View>
-
                 {/* Actions */}
                 <View
                   style={{
                     flexDirection: 'row',
                     justifyContent: 'flex-end',
                     gap: 8,
-                    marginTop: 10,
+                    marginTop: 12,
+                    paddingTop: 10,
+                    borderTopWidth: 1,
+                    borderColor: colors.border,
                   }}
                 >
                   <Pressable
@@ -247,6 +258,27 @@ export default function PropertyReceiptsScreen() {
                     <Ionicons name="download-outline" size={14} color="#fff" style={{ marginRight: 4 }} />
                     <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>PDF Receipt</Text>
                   </Pressable>
+
+                  {r.receiptNumber ? (
+                    <Pressable
+                      onPress={() => handleDeleteReceipt(r._id, r.receiptNumber)}
+                      hitSlop={8}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: radius.sm,
+                        borderWidth: 1,
+                        borderColor: colors.danger,
+                        gap: 3,
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                      <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>Delete</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               </Card>
             ))}

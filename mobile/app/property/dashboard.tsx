@@ -248,7 +248,7 @@ export default function PropertyDashboardScreen() {
                 { label: 'Customer 360°', sub: 'Buyers, KYC, documents & ledger', icon: 'people-outline', route: '/property/customers' },
                 { label: 'Bookings & Sales', sub: 'Unit allotment & schedules', icon: 'bookmark-outline', route: '/property/bookings' },
                 { label: 'Receivables & Dues', sub: 'Record payments, schedules & overdue', icon: 'cash-outline', route: '/property/payments' },
-                { label: 'Official Receipts', sub: 'Tamper-proof PDF & QR receipts', icon: 'receipt-outline', route: '/property/receipts' },
+                { label: 'Official Receipts', sub: 'Official numbered PDF receipts', icon: 'receipt-outline', route: '/property/receipts' },
                 { label: 'Banakhat Generator', sub: 'Agreement for Sale generation', icon: 'document-text-outline', route: '/property/banakhat' },
                 { label: 'Dastavej (Sale Deed)', sub: 'Conveyance deeds & registration', icon: 'ribbon-outline', route: '/property/dastavej' },
                 { label: 'Property Reports', sub: 'Ledgers, inventory & Excel export', icon: 'bar-chart-outline', route: '/property/reports' },

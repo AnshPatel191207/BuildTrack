@@ -23,7 +23,6 @@ export interface DocumentTemplateDocument extends mongoose.HydratedDocument<any>
   clauses: TemplateClause[];
   termsAndConditions: string[];
   showLogo: boolean;
-  showQr: boolean;
   showRera: boolean;
   showGst: boolean;
   watermarkText?: string | null;
@@ -90,7 +89,6 @@ const documentTemplateSchema = new Schema<DocumentTemplateDocument>(
     clauses: { type: [clauseSchema], default: [] },
     termsAndConditions: { type: [String], default: [] },
     showLogo: { type: Boolean, default: true },
-    showQr: { type: Boolean, default: true },
     showRera: { type: Boolean, default: true },
     showGst: { type: Boolean, default: true },
     watermarkText: { type: String, default: null },

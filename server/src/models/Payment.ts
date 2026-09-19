@@ -25,7 +25,6 @@ export interface PaymentDocument extends mongoose.HydratedDocument<any> {
   reference?: string | null;
   notes?: string;
   receiptPdfUrl?: string | null;
-  qrCodeData?: string | null;
   recordedBy: any | null;
 }
 
@@ -76,7 +75,6 @@ const paymentSchema = new Schema<PaymentDocument>(
     reference: { type: String, trim: true, maxlength: 80, default: null },
     notes: { type: String, trim: true, maxlength: 500 },
     receiptPdfUrl: { type: String, default: null },
-    qrCodeData: { type: String, default: null },
     dueNotifiedAt: { type: Date, default: null },
     recordedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   },

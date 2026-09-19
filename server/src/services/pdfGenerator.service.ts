@@ -1,5 +1,4 @@
 import PDFDocument from 'pdfkit';
-import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
 import { numberToWordsINR } from './templateEngine.service';
@@ -52,7 +51,6 @@ export interface ReceiptPdfData {
   secondaryColor?: string;
   watermarkText?: string;
   showLogo?: boolean;
-  showQr?: boolean;
   showGst?: boolean;
   showRera?: boolean;
   showCustomerAddress?: boolean;
@@ -80,7 +78,6 @@ export interface LegalDocPdfData {
   secondaryColor?: string;
   watermarkText?: string;
   showLogo?: boolean;
-  showQr?: boolean;
   showRera?: boolean;
   verificationUrl?: string;
   signatures?: Array<{ role: string; label: string; signerName?: string }>;
@@ -100,7 +97,7 @@ function ensureUploadsDir() {
 }
 
 /**
- * Generates an official PDF receipt with dynamic branding, colors, watermark, and QR verification.
+ * Generates an official PDF receipt with dynamic branding, colors, and watermark.
  */
 export async function generateReceiptPdf(
   data: ReceiptPdfData,
@@ -157,11 +154,6 @@ export async function generateReceiptPdfLegacy(
   const fileName = `Receipt_${data.receiptNumber.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
   const filePath = path.join(UPLOADS_DIR, fileName);
   const relativeUrl = `/uploads/documents/${fileName}`;
-
-  // QR verification
-  const qrText = data.verifiedUrl || `BuildTrack Receipt: ${data.receiptNumber} | Unit: ${data.unitNumber} | Amount: INR ${data.paymentAmount} | Date: ${new Date(data.paymentDate).toLocaleDateString('en-IN')}`;
-  const qrBuffer = await QRCode.toBuffer(qrText, { width: 110, margin: 1 });
-
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
     const writeStream = fs.createWriteStream(filePath);
@@ -315,7 +307,7 @@ export async function generateReceiptPdfLegacy(
       doc.fontSize(10).font('Helvetica-Bold').fillColor(primaryColor).text(`₹${data.remainingBalance.toLocaleString('en-IN')}`, pageMargin + bColW * 2 + 10, summaryY + 20);
     }
 
-    // Section 4: Terms & Conditions + QR & Signature Block
+    // Section 4: Terms & Conditions & Signature Block
     const bottomY = summaryY + 54;
 
     // Terms
@@ -331,15 +323,6 @@ export async function generateReceiptPdfLegacy(
       doc.fontSize(7.5).font('Helvetica').fillColor(lightGray).text(`• ${term}`, pageMargin, termY, { width: 280 });
       termY += 11;
     });
-
-    // QR Verification Code
-    if (data.showQr !== false) {
-      doc.image(qrBuffer, pageMargin + 300, bottomY - 5, { width: 68, height: 68 });
-      doc.fontSize(7).font('Helvetica').fillColor(lightGray).text('Scan to Verify', pageMargin + 300, bottomY + 65, {
-        width: 68,
-        align: 'center',
-      });
-    }
 
     // Authorized Signature
     const signX = pageWidth - pageMargin - 130;

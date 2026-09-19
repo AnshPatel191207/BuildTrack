@@ -709,7 +709,6 @@ export interface Payment {
   status: PaymentStatus;
   reference?: string | null;
   receiptPdfUrl?: string | null;
-  qrCodeData?: string | null;
   notes?: string;
   isOverdue?: boolean;
 }

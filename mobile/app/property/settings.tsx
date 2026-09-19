@@ -68,7 +68,6 @@ export default function ProjectSettingsScreen() {
 
   // Receipt Config State
   const [showLogo, setShowLogo] = useState(true);
-  const [showQr, setShowQr] = useState(true);
   const [showGst, setShowGst] = useState(true);
   const [showRera, setShowRera] = useState(true);
   const [showCustomerAddress, setShowCustomerAddress] = useState(true);
@@ -136,7 +135,6 @@ export default function ProjectSettingsScreen() {
 
       if (p.receiptConfig) {
         setShowLogo(p.receiptConfig.showLogo ?? true);
-        setShowQr(p.receiptConfig.showQr ?? true);
         setShowGst(p.receiptConfig.showGst ?? true);
         setShowRera(p.receiptConfig.showRera ?? true);
         setShowCustomerAddress(p.receiptConfig.showCustomerAddress ?? true);
@@ -257,7 +255,6 @@ export default function ProjectSettingsScreen() {
       // 3. Save Receipt Config
       const receiptPayload = {
         showLogo,
-        showQr,
         showGst,
         showRera,
         showCustomerAddress,
@@ -572,10 +569,6 @@ export default function ProjectSettingsScreen() {
                     <Switch value={showLogo} onValueChange={setShowLogo} thumbColor="#fff" trackColor={{ true: primary }} />
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 13.5, color: colors.text, fontWeight: '600' }}>Show QR Code Verification</Text>
-                    <Switch value={showQr} onValueChange={setShowQr} thumbColor="#fff" trackColor={{ true: primary }} />
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Text style={{ fontSize: 13.5, color: colors.text, fontWeight: '600' }}>Show RERA Registration</Text>
                     <Switch value={showRera} onValueChange={setShowRera} thumbColor="#fff" trackColor={{ true: primary }} />
                   </View>
@@ -634,7 +627,6 @@ export default function ProjectSettingsScreen() {
                   secondaryColor={secondary}
                   watermarkText={watermarkText}
                   showLogo={showLogo}
-                  showQr={showQr}
                   showGst={showGst}
                   showRera={showRera}
                   showCustomerAddress={showCustomerAddress}

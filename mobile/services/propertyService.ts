@@ -70,6 +70,16 @@ export const propertyService = {
     return res.data.data;
   },
 
+  deleteTower: async (towerId: string) => {
+    const res = await api.delete<ApiResponse<{ id: string; message: string }>>(`/property/towers/${towerId}`);
+    return res.data.data;
+  },
+
+  deleteFloor: async (floorId: string) => {
+    const res = await api.delete<ApiResponse<{ id: string; message: string }>>(`/property/floors/${floorId}`);
+    return res.data.data;
+  },
+
   // ── Flats & Shops ──────────────────────────────────────────────
   listFlats: (
     projectIdOrFilters?: string | { projectId?: string; towerId?: string; floorId?: string; status?: string; bedrooms?: number; search?: string; page?: number; limit?: number },
@@ -265,6 +275,11 @@ export const propertyService = {
     return res.data.data;
   },
 
+  deleteReceipt: async (paymentId: string) => {
+    const res = await api.delete<ApiResponse<{ paymentId: string; message: string }>>(`/property/payments/${paymentId}/receipt`);
+    return res.data.data;
+  },
+
   deletePayment: async (paymentId: string) => {
     const res = await api.delete<ApiResponse<{ message: string }>>(`/property/payments/${paymentId}`);
     return res.data.data;
@@ -305,6 +320,11 @@ export const propertyService = {
         params: cleanParams(filters),
       })
       .then((r) => r.data.data),
+
+  deleteDocument: async (documentId: string) => {
+    const res = await api.delete<ApiResponse<{ id: string; message: string }>>(`/property/documents/${documentId}`);
+    return res.data.data;
+  },
 
   listTemplates: () => cachedGet<PropertyDocumentTemplate[]>('/property/templates'),
 
